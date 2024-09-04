@@ -188,6 +188,32 @@ def display_report(report: Report):
             for warning in page.warnings:
                 st.write(f"- {warning}")
 
+        # W3C Validation Results
+        st.subheader("W3C Validation Results")
+        w3c_results = page.w3c_validation
+        if w3c_results and w3c_results.messages:
+            st.write(f"Total messages: {len(w3c_results.messages)}")
+
+            error_count = sum(1 for msg in w3c_results.messages if msg.type == "error")
+            warning_count = sum(1 for msg in w3c_results.messages if msg.type == "info")
+
+            st.write(f"Errors: {error_count}")
+            st.write(f"Warnings: {warning_count}")
+
+            with st.expander("View W3C Validation Details"):
+                for msg in w3c_results.messages:
+                    if msg.type == "error":
+                        st.error(f"Error: {msg.message}")
+                    elif msg.type == "info":
+                        st.warning(f"Warning: {msg.message}")
+                    else:
+                        st.info(f"Info: {msg.message}")
+                    if msg.line and msg.column:
+                        st.write(f"Location: Line {msg.line}, Column {msg.column}")
+                    st.write("---")
+        else:
+            st.write("W3C Validation results are not available.")
+
     # Errors
     if report.errors:
         with st.expander("Errors"):

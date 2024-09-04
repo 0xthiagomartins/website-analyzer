@@ -2,3 +2,5 @@ pytest
 pyseoanalyzer
 pydantic
 streamlit
+aiohttp
+requests
