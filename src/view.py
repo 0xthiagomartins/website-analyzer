@@ -42,6 +42,40 @@ custom_css = """
         background-color: var(--primary);
         color: var(--white);
     }
+
+    .header-container {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1rem 0;
+    }
+
+    .logo-container {
+        width: 200px;  /* Adjust this value as needed */
+    }
+
+    .logo-container img {
+        max-width: 100%;
+        height: auto;
+        transition: opacity 0.3s ease;
+    }
+
+    .logo-container .logo-hover {
+        display: none;
+    }
+
+    .logo-container:hover .logo-default {
+        display: none;
+    }
+
+    .logo-container:hover .logo-hover {
+        display: inline;
+    }
+
+    .title-container {
+        flex-grow: 1;
+        text-align: center;
+    }
 </style>
 """
 
@@ -50,9 +84,25 @@ def main():
     st.set_page_config(page_title="SEO Analyzer", page_icon="🔍", layout="wide")
     st.markdown(custom_css, unsafe_allow_html=True)
 
-    st.title("SEO Analyzer")
+    # Custom header with logo and title
+    st.markdown(
+        """
+        <div class="header-container">
+            <div class="logo-container">
+                <a href="https://www.nassim.com.br" target="_blank">
+                    <img src="https://www.nassim.com.br/NassinAssets/NassinBrancoRemodel.png" alt="SEO Analyzer Logo" class="logo-default">
+                    <img src="https://www.nassim.com.br/NassinAssets/NassinVermelhoRemodel.png" alt="SEO Analyzer Logo Hover" class="logo-hover">
+                </a>
+            </div>
+            <div class="title-container">
+                <h1>SEO Analyzer</h1>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-    # Initialize SEOAnalyzerService
+    # Create a single column for the form
     if "seo_service" not in st.session_state:
         st.session_state["seo_service"] = SEOAnalyzerService()
 
@@ -63,18 +113,24 @@ def main():
             with st.spinner("Analyzing..."):
                 report = st.session_state["seo_service"].analyze(url)
                 st.session_state["report"] = report
-                display_report(report)
                 st.session_state["analysis_complete"] = True
         else:
             st.warning("Please enter a valid URL.")
 
-    # Show "Generate Suggestions" button only after analysis is complete
+    # Display report if analysis is complete
     if st.session_state.get("analysis_complete", False):
+        display_report(st.session_state["report"])
+
+        # Show "Generate Suggestions" button after the report
         if st.button("Generate Suggestions"):
             suggestions = st.session_state["seo_service"].generate_suggestions(
                 st.session_state["report"]
             )
-            display_suggestions(suggestions)
+            st.session_state["suggestions"] = suggestions
+
+    # Display suggestions if they exist
+    if "suggestions" in st.session_state:
+        display_suggestions(st.session_state["suggestions"])
 
 
 def display_report(report: Report):
@@ -97,22 +153,40 @@ def display_report(report: Report):
 
     # Pages Analysis
     st.subheader("Page Analysis")
-    tabs = st.tabs([f"Page {i+1}" for i in range(len(report.pages))])
-    for i, (tab, page) in enumerate(zip(tabs, report.pages)):
-        with tab:
-            st.write(f"URL: {page.url}")
-            st.write(f"Title: {page.title}")
-            st.write(f"Description: {page.description}")
-            st.write(f"Word Count: {page.word_count}")
 
-            with st.expander("Top Keywords"):
-                for count, word in page.keywords[:5]:
-                    st.write(f"- {word}: {count}")
+    # Create multiple rows of tabs
+    tabs_per_row = 20
+    num_rows = (len(report.pages) + tabs_per_row - 1) // tabs_per_row
 
-            if page.warnings:
-                with st.expander("Warnings"):
-                    for warning in page.warnings:
-                        st.write(f"- {warning}")
+    for row in range(num_rows):
+        cols = st.columns(tabs_per_row)
+        for col, page_index in zip(
+            cols,
+            range(row * tabs_per_row, min((row + 1) * tabs_per_row, len(report.pages))),
+        ):
+            with col:
+                page = report.pages[page_index]
+                if st.button(f"Page {page_index + 1}", key=f"page_{page_index}"):
+                    st.session_state["selected_page"] = page_index
+
+    # Display selected page details
+    if "selected_page" in st.session_state:
+        page = report.pages[st.session_state["selected_page"]]
+        st.write("---")
+        st.subheader(f"Details for Page {st.session_state['selected_page'] + 1}")
+        st.write(f"URL: {page.url}")
+        st.write(f"Title: {page.title}")
+        st.write(f"Description: {page.description}")
+        st.write(f"Word Count: {page.word_count}")
+
+        st.write("Top Keywords:")
+        for count, word in page.keywords[:5]:
+            st.write(f"- {word}: {count}")
+
+        if page.warnings:
+            st.write("Warnings:")
+            for warning in page.warnings:
+                st.write(f"- {warning}")
 
     # Errors
     if report.errors:

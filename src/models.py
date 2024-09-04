@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from collections import Counter
-from typing import List, Tuple, Union
+from typing import List, Tuple, Union, Optional
 
 
 class Page(BaseModel):
@@ -14,7 +14,7 @@ class Page(BaseModel):
     bigrams: List[Counter]
     trigrams: List[Counter]
     warnings: List[str]
-    content_hash: str
+    content_hash: Optional[str] = None  # Allow None values
 
 
 class KeyWord(BaseModel):
@@ -29,6 +29,6 @@ class Errors(BaseModel):
 class Report(BaseModel):
     pages: list[Page]
     keywords: list[KeyWord]
-    errors: list[Errors]
+    errors: list[Errors] | None
     total_time: float
     duplicate_pages: list[list[str]]

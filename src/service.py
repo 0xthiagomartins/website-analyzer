@@ -1,3 +1,4 @@
+from pprint import pprint
 from pyseoanalyzer import analyze
 from src.models import Report, Page, KeyWord
 from typing import Dict, Any, List
@@ -31,18 +32,17 @@ class SEOAnalyzerService:
         )
 
     def _create_page(self, page_data: Dict[str, Any]) -> Page:
+        pprint(page_data.get("errors"))
         return Page(
             url=page_data.get("url", ""),
             title=page_data.get("title", ""),
             description=page_data.get("description", ""),
             word_count=page_data.get("word_count", 0),
-            keywords=page_data.get(
-                "keywords", []
-            ),  # Assume it's already in the correct format
+            keywords=page_data.get("keywords", []),
             bigrams=[Counter(bigram) for bigram in page_data.get("bigrams", [])],
             trigrams=[Counter(trigram) for trigram in page_data.get("trigrams", [])],
             warnings=page_data.get("warnings", []),
-            content_hash=page_data.get("content_hash", ""),
+            content_hash=page_data.get("content_hash"),  # This can now be None
         )
 
     def _generate_report(self):
