@@ -1,1 +1,1 @@
-# website-analyser
+# website-analyzer
