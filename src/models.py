@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from collections import Counter
 from typing import List, Tuple, Union, Optional
 
@@ -10,12 +10,12 @@ class W3CMessage(BaseModel):
     extract: Optional[
         str
     ]  # The "extract" string represents an extract of the document source from around the point in source designated for the message by the "line" and "column" numbers.
-    offset: Optional[
-        int
-    ]  # The "offset" number is an UTF-16 code unit index into the "extract" string. The index identifies the same UTF-16 code unit in the extract that the "line" and "column" numbers identify in the full source. The first code unit has the index 0.
-    url: Optional[str]
-    line: Optional[int]
-    column: Optional[int]
+    first_line: Optional[int]  # "firstLine",
+    last_line: Optional[int]  # "lastLine",
+    first_column: Optional[int]  # "firstColumn",
+    last_column: Optional[int]  # "lastColumn",
+    hiliteStart: Optional[int]  # "hiliteStart",
+    hiliteLength: Optional[int]  # "hiliteLength"
 
 
 class W3Object(BaseModel):
@@ -26,9 +26,9 @@ class W3Object(BaseModel):
 
 class W3CResponse(BaseModel):
     messages: list[W3CMessage]
-    url: str | None
-    source: str | None
-    language: str | None
+    url: Optional[str]
+    source: Optional[str]
+    language: Optional[str]
 
 
 class Page(BaseModel):
@@ -41,9 +41,9 @@ class Page(BaseModel):
     ]  # Allow both tuple and list formats
     bigrams: List[Counter]
     trigrams: List[Counter]
-    warnings: List[str]
+    warnings: List[str] = Field(default_factory=lambda: list(set()))
     content_hash: Optional[str] = None  # Allow None values
-    w3c_validation: W3CResponse
+    w3c_validation: W3CResponse | None
 
 
 class KeyWord(BaseModel):

@@ -119,8 +119,8 @@ def main():
 
     # Display report if analysis is complete
     if st.session_state.get("analysis_complete", False):
-        display_report(st.session_state["report"])
-
+        display_report(st.session_state["report"], st.session_state["seo_service"])
+        st.write("---")
         # Show "Generate Suggestions" button after the report
         if st.button("Generate Suggestions"):
             suggestions = st.session_state["seo_service"].generate_suggestions(
@@ -133,7 +133,7 @@ def main():
         display_suggestions(st.session_state["suggestions"])
 
 
-def display_report(report: Report):
+def display_report(report: Report, seo_service: SEOAnalyzerService):
     st.header("Analysis Report")
 
     # Summary
@@ -188,10 +188,16 @@ def display_report(report: Report):
             for warning in page.warnings:
                 st.write(f"- {warning}")
 
-        # W3C Validation Results
-        st.subheader("W3C Validation Results")
-        w3c_results = page.w3c_validation
-        if w3c_results and w3c_results.messages:
+        # W3C Validation
+        st.subheader("W3C Validation")
+        if page.w3c_validation is None:
+            if st.button("Validate Page"):
+                with st.spinner("Validating page..."):
+                    w3c_response = seo_service.validate_page(page.url)
+                    page.w3c_validation = w3c_response
+                st.rerun()
+        else:
+            w3c_results = page.w3c_validation
             st.write(f"Total messages: {len(w3c_results.messages)}")
 
             error_count = sum(1 for msg in w3c_results.messages if msg.type == "error")
@@ -208,11 +214,14 @@ def display_report(report: Report):
                         st.warning(f"Warning: {msg.message}")
                     else:
                         st.info(f"Info: {msg.message}")
-                    if msg.line and msg.column:
-                        st.write(f"Location: Line {msg.line}, Column {msg.column}")
-                    st.write("---")
-        else:
-            st.write("W3C Validation results are not available.")
+
+                    if msg.first_column and msg.last_column:
+                        st.write(
+                            f"From line {msg.first_line}, column {msg.first_column}; to line {msg.last_line}, column {msg.last_column}"
+                        )
+
+                    if msg.extract:
+                        st.code(msg.extract, language="html")
 
     # Errors
     if report.errors:
