@@ -1,6 +1,7 @@
 import streamlit as st
 from src.service import SEOAnalyzerService
 from src.models import Report
+import pandas as pd
 
 custom_css = """
 <style>
@@ -10,7 +11,7 @@ custom_css = """
         --primary: #D33F49;
         --black: #04080F;
         --white: #FBFFFE;
-        --neutral: #BABCC3;
+        --neutral: #A0A0A0;
     }
 
     body {
@@ -76,6 +77,25 @@ custom_css = """
         flex-grow: 1;
         text-align: center;
     }
+
+    .metric-container {
+        background-color: transparent;
+        border: 1px solid var(--primary);
+        border-radius: 5px;
+        padding: 10px;
+        text-align: center;
+    }
+
+    .metric-value {
+        font-size: 28px;
+        font-weight: bold;
+        color: var(--primary);
+    }
+
+    .metric-label {
+        font-size: 18px;
+        color: var(--white);
+    }
 </style>
 """
 
@@ -84,7 +104,6 @@ def main():
     st.set_page_config(page_title="SEO Analyzer", page_icon="🔍", layout="wide")
     st.markdown(custom_css, unsafe_allow_html=True)
 
-    # Custom header with logo and title
     st.markdown(
         """
         <div class="header-container">
@@ -102,7 +121,6 @@ def main():
         unsafe_allow_html=True,
     )
 
-    # Create a single column for the form
     if "seo_service" not in st.session_state:
         st.session_state["seo_service"] = SEOAnalyzerService()
 
@@ -117,39 +135,64 @@ def main():
         else:
             st.warning("Please enter a valid URL.")
 
-    # Display report if analysis is complete
     if st.session_state.get("analysis_complete", False):
         display_report(st.session_state["report"], st.session_state["seo_service"])
         st.write("---")
-        # Show "Generate Suggestions" button after the report
         if st.button("Generate Suggestions"):
             suggestions = st.session_state["seo_service"].generate_suggestions(
                 st.session_state["report"]
             )
             st.session_state["suggestions"] = suggestions
 
-    # Display suggestions if they exist
     if "suggestions" in st.session_state:
         display_suggestions(st.session_state["suggestions"])
 
 
 def display_report(report: Report, seo_service: SEOAnalyzerService):
-    st.header("Analysis Report")
+    st.header("Overall Analysis Report")
 
-    # Summary
-    with st.expander("Summary", expanded=True):
-        st.write(f"Total pages analyzed: {len(report.pages)}")
-        st.write(f"Total analysis time: {report.total_time:.2f} seconds")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown(
+            f"""
+            <div class="metric-container">
+                <div class="metric-value">{len(report.pages)}</div>
+                <div class="metric-label">Total pages analyzed</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    with col2:
+        st.markdown(
+            f"""
+            <div class="metric-container">
+                <div class="metric-value">{report.total_time:.2f}s</div>
+                <div class="metric-label">Total analysis time</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
         if report.errors:
             st.error(f"Errors encountered: {len(report.errors)}")
         if report.duplicate_pages:
             st.warning(f"Duplicate pages detected: {len(report.duplicate_pages)}")
 
     # Overall Keywords
-    with st.expander("Overall Keywords"):
+    with st.expander("Overall Keywords", expanded=True):
         st.subheader("Top 10 Keywords")
-        for keyword in report.keywords[:10]:
-            st.write(f"- {keyword.word}: {keyword.count}")
+        if report.keywords:
+            df = pd.DataFrame(
+                [(kw.word, kw.count) for kw in report.keywords[:10]],
+                columns=["Keyword", "Count"],
+            )
+            df_transposed = df.set_index("Keyword").T
+            st.table(
+                df_transposed.style.hide(axis="index").set_properties(
+                    **{"text-align": "left"}
+                )
+            )
+        else:
+            st.write("No keywords found.")
 
     # Pages Analysis
     st.subheader("Page Analysis")
