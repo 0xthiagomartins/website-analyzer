@@ -6,3 +6,5 @@ aiohttp
 requests
 pandas
 reportlab
+plotly
+matplotlib

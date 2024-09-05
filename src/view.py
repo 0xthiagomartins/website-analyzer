@@ -4,6 +4,7 @@ from src.models import Report
 import pandas as pd
 from src.pdf_generator import PDFGenerator
 import os
+import plotly.express as px
 
 custom_css = """
 <style>
@@ -172,57 +173,93 @@ def main():
 def display_report(report: Report, seo_service: SEOAnalyzerService):
     st.header("Overall Analysis Report")
 
-    col1, col2 = st.columns(2)
+    # Key Metrics
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.markdown(
-            f"""
-            <div class="metric-container">
-                <div class="metric-value">{len(report.pages)}</div>
-                <div class="metric-label">Total pages analyzed</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        st.metric("Total Pages", len(report.pages))
     with col2:
-        st.markdown(
-            f"""
-            <div class="metric-container">
-                <div class="metric-value">{report.total_time:.2f}s</div>
-                <div class="metric-label">Total analysis time</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
+        st.metric("Analysis Time", f"{report.total_time:.2f}s")
+    with col3:
+        st.metric("Errors", len(report.errors) if report.errors else 0)
+    with col4:
+        st.metric(
+            "Duplicate Pages",
+            len(report.duplicate_pages) if report.duplicate_pages else 0,
         )
-    if report.errors:
-        st.error(f"Errors encountered: {len(report.errors)}")
-    if report.duplicate_pages:
-        st.warning(f"Duplicate pages detected: {len(report.duplicate_pages)}")
 
     # Overall Keywords
-    with st.expander("Overall Keywords"):
+    with st.expander("Overall Keywords", expanded=True):
         st.subheader("Top 10 Keywords")
         if report.keywords:
             df = pd.DataFrame(
                 [(kw.word, kw.count) for kw in report.keywords[:10]],
                 columns=["Keyword", "Count"],
             )
-            df_transposed = df.set_index("Keyword").T
-            st.table(
-                df_transposed.style.hide(axis="index").set_properties(
-                    **{"text-align": "left"}
-                )
-            )
+            fig = px.bar(df, x="Keyword", y="Count", title="Top 10 Keywords")
+            fig.update_layout(xaxis_title="Keyword", yaxis_title="Count")
+            st.plotly_chart(fig, use_container_width=True)
         else:
-            st.write("No keywords found.")
+            st.info("No keywords found.")
 
     # Duplicate Pages
     if report.duplicate_pages:
-        with st.expander("Duplicate Pages"):
+        with st.expander("Duplicate Pages", expanded=True):
             for i, duplicate_group in enumerate(report.duplicate_pages, 1):
-                st.write(f"Group {i}: {', '.join(duplicate_group)}")
+                st.markdown(f"**Group {i}:**")
+                for url in duplicate_group:
+                    st.markdown(f"- [{url}]({url})")
+                st.markdown("---")
+
+    # Error Summary
+    if report.errors:
+        with st.expander("Error Summary", expanded=True):
+            error_df = pd.DataFrame(report.errors, columns=["Error"])
+            error_counts = error_df["Error"].value_counts().reset_index()
+            error_counts.columns = ["Error", "Count"]
+            fig = px.pie(
+                error_counts, values="Count", names="Error", title="Error Distribution"
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+    # Page Analysis Overview
+    st.subheader("Page Analysis Overview")
+
+    # Prepare data for the overview table
+    overview_data = []
+    for page in report.pages:
+        overview_data.append(
+            {
+                "URL": page.url,
+                "Title Length": len(page.title),
+                "Description Length": len(page.description),
+                "Word Count": page.word_count,
+                "Warnings": len(page.warnings),
+            }
+        )
+
+    overview_df = pd.DataFrame(overview_data)
+
+    # Display the overview table with conditional formatting
+    st.dataframe(
+        overview_df.style.background_gradient(
+            subset=["Title Length", "Description Length", "Word Count"], cmap="RdYlGn"
+        )
+        .highlight_between(
+            subset=["Title Length"], left=30, right=60, color="lightgreen"
+        )
+        .highlight_between(
+            subset=["Description Length"], left=50, right=160, color="lightgreen"
+        )
+        .highlight_between(
+            subset=["Word Count"], left=300, right=float("inf"), color="lightgreen"
+        )
+        .highlight_between(
+            subset=["Warnings"], left=1, right=float("inf"), color="yellow"
+        )
+    )
 
     # Pages Analysis
-    st.subheader("Page Analysis")
+    st.subheader("Detailed Page Analysis")
 
     # Create multiple rows of tabs
     tabs_per_row = 20
@@ -244,19 +281,36 @@ def display_report(report: Report, seo_service: SEOAnalyzerService):
         page = report.pages[st.session_state["selected_page"]]
         st.write("---")
         st.subheader(f"Details for Page {st.session_state['selected_page'] + 1}")
-        st.write(f"URL: {page.url}")
-        st.write(f"Title: {page.title}")
-        st.write(f"Description: {page.description}")
-        st.write(f"Word Count: {page.word_count}")
 
-        st.write("Top Keywords:")
-        for count, word in page.keywords[:5]:
-            st.write(f"- {word}: {count}")
+        # Create three columns for main page info
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Word Count", page.word_count)
+        with col2:
+            st.metric("Title Length", len(page.title))
+        with col3:
+            st.metric("Description Length", len(page.description))
 
+        # URL
+        st.markdown(f"**URL:** [{page.url}]({page.url})")
+
+        # Title and Description
+        with st.expander("Title and Description", expanded=True):
+            st.markdown(f"**Title:** {page.title}")
+            st.markdown(f"**Description:** {page.description}")
+
+        # Top Keywords
+        with st.expander("Top Keywords", expanded=True):
+            keyword_data = pd.DataFrame(
+                page.keywords[:10], columns=["Count", "Keyword"]
+            )
+            st.bar_chart(keyword_data.set_index("Keyword"))
+
+        # Warnings
         if page.warnings:
-            st.write("Warnings:")
-            for warning in page.warnings:
-                st.write(f"- {warning}")
+            with st.expander("Warnings", expanded=True):
+                for warning in page.warnings:
+                    st.warning(warning)
 
         # W3C Validation
         st.subheader("W3C Validation")
@@ -268,15 +322,21 @@ def display_report(report: Report, seo_service: SEOAnalyzerService):
                 st.rerun()
         else:
             w3c_results = page.w3c_validation
-            st.write(f"Total messages: {len(w3c_results.messages)}")
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Total Messages", len(w3c_results.messages))
+            with col2:
+                st.metric(
+                    "Errors",
+                    sum(1 for msg in w3c_results.messages if msg.type == "error"),
+                )
+            with col3:
+                st.metric(
+                    "Warnings",
+                    sum(1 for msg in w3c_results.messages if msg.type == "info"),
+                )
 
-            error_count = sum(1 for msg in w3c_results.messages if msg.type == "error")
-            warning_count = sum(1 for msg in w3c_results.messages if msg.type == "info")
-
-            st.write(f"Errors: {error_count}")
-            st.write(f"Warnings: {warning_count}")
-
-            with st.expander("View W3C Validation Details"):
+            with st.expander("W3C Validation Details"):
                 for msg in w3c_results.messages:
                     if msg.type == "error":
                         st.error(f"Error: {msg.message}")
@@ -291,14 +351,19 @@ def display_report(report: Report, seo_service: SEOAnalyzerService):
                         and msg.last_line
                         and msg.last_column
                     ):
-                        st.write(
+                        st.text(
                             f"From line {msg.first_line}, column {msg.first_column}; to line {msg.last_line}, column {msg.last_column}"
                         )
 
                     if msg.extract:
                         st.code(msg.extract, language="html")
 
-                    st.write("---")
+                    st.markdown("---")
+
+        # Add a back button
+        if st.button("Back to Overview"):
+            del st.session_state["selected_page"]
+            st.rerun()
 
     # Errors
     if report.errors:
