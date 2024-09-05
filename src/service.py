@@ -76,7 +76,7 @@ class SEOAnalyzerService:
                 messages.append(
                     W3CMessage(
                         type=msg.get("type"),
-                        subtype=msg.get("subtype"),
+                        subtype=msg.get("subType"),
                         message=msg.get("message"),
                         extract=msg.get("extract"),
                         first_line=first_line,

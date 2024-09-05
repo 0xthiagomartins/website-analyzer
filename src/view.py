@@ -251,12 +251,18 @@ def display_report(report: Report, seo_service: SEOAnalyzerService):
 
             with st.expander("View W3C Validation Details"):
                 for msg in w3c_results.messages:
-                    if msg.type == "error":
-                        st.error(f"Error: {msg.message}")
-                    elif msg.type == "info":
-                        st.warning(f"Warning: {msg.message}")
-                    else:
-                        st.info(f"Info: {msg.message}")
+                    print(msg.type, msg.subtype)
+                    match msg.type:
+                        case "error":
+                            st.error(f"Error: {msg.message}")
+                        
+                        case "info":
+                            if msg.subtype != "warning":
+                                st.info(f"Info: {msg.message}")
+                            else:
+                                st.warning(f"Warning: {msg.message}")
+                        case _:
+                            st.info(f"{msg.type.capitalize()}: {msg.message}")
 
                     if msg.first_column and msg.last_column:
                         st.write(
