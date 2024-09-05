@@ -73,12 +73,14 @@ class SEOAnalyzerService:
                 last_column = msg.get("lastColumn")
                 hilite_start = msg.get("hiliteStart")
                 hilite_length = msg.get("hiliteLength")
+                print(msg.get("url"), end=" - ")
                 messages.append(
                     W3CMessage(
                         type=msg.get("type"),
                         subtype=msg.get("subType"),
                         message=msg.get("message"),
                         extract=msg.get("extract"),
+                        url=msg.get("url"),
                         first_line=first_line,
                         last_line=last_line,
                         first_column=first_column,

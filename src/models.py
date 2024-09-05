@@ -10,6 +10,7 @@ class W3CMessage(BaseModel):
     extract: Optional[
         str
     ]  # The "extract" string represents an extract of the document source from around the point in source designated for the message by the "line" and "column" numbers.
+    url: Optional[str]
     first_line: Optional[int]  # "firstLine",
     last_line: Optional[int]  # "lastLine",
     first_column: Optional[int]  # "firstColumn",

@@ -172,10 +172,10 @@ def display_report(report: Report, seo_service: SEOAnalyzerService):
             """,
             unsafe_allow_html=True,
         )
-        if report.errors:
-            st.error(f"Errors encountered: {len(report.errors)}")
-        if report.duplicate_pages:
-            st.warning(f"Duplicate pages detected: {len(report.duplicate_pages)}")
+    if report.errors:
+        st.error(f"Errors encountered: {len(report.errors)}")
+    if report.duplicate_pages:
+        st.warning(f"Duplicate pages detected: {len(report.duplicate_pages)}")
 
     # Overall Keywords
     with st.expander("Overall Keywords", expanded=True):
@@ -193,6 +193,12 @@ def display_report(report: Report, seo_service: SEOAnalyzerService):
             )
         else:
             st.write("No keywords found.")
+
+    # Duplicate Pages
+    if report.duplicate_pages:
+        with st.expander("Duplicate Pages"):
+            for i, duplicate_group in enumerate(report.duplicate_pages, 1):
+                st.write(f"Group {i}: {', '.join(duplicate_group)}")
 
     # Pages Analysis
     st.subheader("Page Analysis")
@@ -251,11 +257,10 @@ def display_report(report: Report, seo_service: SEOAnalyzerService):
 
             with st.expander("View W3C Validation Details"):
                 for msg in w3c_results.messages:
-                    print(msg.type, msg.subtype)
                     match msg.type:
                         case "error":
                             st.error(f"Error: {msg.message}")
-                        
+
                         case "info":
                             if msg.subtype != "warning":
                                 st.info(f"Info: {msg.message}")
@@ -277,12 +282,6 @@ def display_report(report: Report, seo_service: SEOAnalyzerService):
         with st.expander("Errors"):
             for error in report.errors:
                 st.error(error)
-
-    # Duplicate Pages
-    if report.duplicate_pages:
-        with st.expander("Duplicate Pages"):
-            for i, duplicate_group in enumerate(report.duplicate_pages, 1):
-                st.write(f"Group {i}: {', '.join(duplicate_group)}")
 
 
 def display_suggestions(suggestions):
