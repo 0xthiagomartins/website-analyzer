@@ -429,7 +429,6 @@ class PDFGenerator:
         ]
         self._create_table(data)
 
-        self._create_paragraph(f"URL: {page.url}")
         self._create_paragraph(f"Title: {page.title}")
         self._create_paragraph(f"Description: {page.description}")
 
