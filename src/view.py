@@ -2,6 +2,8 @@ import streamlit as st
 from src.service import SEOAnalyzerService
 from src.models import Report
 import pandas as pd
+from src.pdf_generator import PDFGenerator
+import os
 
 custom_css = """
 <style>
@@ -178,7 +180,7 @@ def display_report(report: Report, seo_service: SEOAnalyzerService):
         st.warning(f"Duplicate pages detected: {len(report.duplicate_pages)}")
 
     # Overall Keywords
-    with st.expander("Overall Keywords", expanded=True):
+    with st.expander("Overall Keywords"):
         st.subheader("Top 10 Keywords")
         if report.keywords:
             df = pd.DataFrame(
@@ -257,31 +259,47 @@ def display_report(report: Report, seo_service: SEOAnalyzerService):
 
             with st.expander("View W3C Validation Details"):
                 for msg in w3c_results.messages:
-                    match msg.type:
-                        case "error":
-                            st.error(f"Error: {msg.message}")
+                    if msg.type == "error":
+                        st.error(f"Error: {msg.message}")
+                    elif msg.type == "info":
+                        st.warning(f"Warning: {msg.message}")
+                    else:
+                        st.info(f"Info: {msg.message}")
 
-                        case "info":
-                            if msg.subtype != "warning":
-                                st.info(f"Info: {msg.message}")
-                            else:
-                                st.warning(f"Warning: {msg.message}")
-                        case _:
-                            st.info(f"{msg.type.capitalize()}: {msg.message}")
-
-                    if msg.first_column and msg.last_column:
+                    if msg.line and msg.column:
                         st.write(
-                            f"From line {msg.first_line}, column {msg.first_column}; to line {msg.last_line}, column {msg.last_column}"
+                            f"From line {msg.line}, column {msg.column}; to line {msg.line}, column {msg.column + len(msg.message) - 1}"
                         )
 
                     if msg.extract:
                         st.code(msg.extract, language="html")
+
+                    st.write("---")
 
     # Errors
     if report.errors:
         with st.expander("Errors"):
             for error in report.errors:
                 st.error(error)
+
+    # Add a button to generate PDF report
+    if st.button("Generate PDF Report"):
+        pdf_file = "seo_analysis_report.pdf"
+        with st.spinner("Generating PDF report..."):
+            pdf_generator = PDFGenerator(report, pdf_file)
+            pdf_generator.generate()
+
+        # Provide a download link for the generated PDF
+        with open(pdf_file, "rb") as file:
+            btn = st.download_button(
+                label="Download PDF Report",
+                data=file,
+                file_name=pdf_file,
+                mime="application/pdf",
+            )
+
+        # Optionally, remove the file after providing the download link
+        os.remove(pdf_file)
 
 
 def display_suggestions(suggestions):

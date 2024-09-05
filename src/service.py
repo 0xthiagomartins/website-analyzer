@@ -1,13 +1,8 @@
-import concurrent.futures
-from pprint import pprint
 from pyseoanalyzer import analyze
 from src.models import Report, Page, KeyWord, W3CResponse, W3CMessage
 from typing import Dict, Any, List
 from collections import Counter
 import requests
-import time
-import random
-import logging
 
 
 class SEOAnalyzerService:
