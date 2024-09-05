@@ -285,9 +285,14 @@ def display_report(report: Report, seo_service: SEOAnalyzerService):
                     else:
                         st.info(f"Info: {msg.message}")
 
-                    if msg.line and msg.column:
+                    if (
+                        msg.first_line
+                        and msg.first_column
+                        and msg.last_line
+                        and msg.last_column
+                    ):
                         st.write(
-                            f"From line {msg.line}, column {msg.column}; to line {msg.line}, column {msg.column + len(msg.message) - 1}"
+                            f"From line {msg.first_line}, column {msg.first_column}; to line {msg.last_line}, column {msg.last_column}"
                         )
 
                     if msg.extract:
