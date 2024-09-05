@@ -146,6 +146,25 @@ def main():
             )
             st.session_state["suggestions"] = suggestions
 
+        # Add a button to generate PDF report
+        if st.button("Generate PDF Report"):
+            pdf_file = "seo_analysis_report.pdf"
+            with st.spinner("Generating PDF report..."):
+                pdf_generator = PDFGenerator(st.session_state["report"], pdf_file)
+                pdf_generator.generate()
+
+            # Provide a download link for the generated PDF
+            with open(pdf_file, "rb") as file:
+                btn = st.download_button(
+                    label="Download PDF Report",
+                    data=file,
+                    file_name=pdf_file,
+                    mime="application/pdf",
+                )
+
+            # Optionally, remove the file after providing the download link
+            os.remove(pdf_file)
+
     if "suggestions" in st.session_state:
         display_suggestions(st.session_state["suggestions"])
 
@@ -217,7 +236,7 @@ def display_report(report: Report, seo_service: SEOAnalyzerService):
         ):
             with col:
                 page = report.pages[page_index]
-                if st.button(f"Page {page_index + 1}", key=f"page_{page_index}"):
+                if st.button(f"{page_index + 1:03d}", key=f"page_{page_index}"):
                     st.session_state["selected_page"] = page_index
 
     # Display selected page details
@@ -281,25 +300,6 @@ def display_report(report: Report, seo_service: SEOAnalyzerService):
         with st.expander("Errors"):
             for error in report.errors:
                 st.error(error)
-
-    # Add a button to generate PDF report
-    if st.button("Generate PDF Report"):
-        pdf_file = "seo_analysis_report.pdf"
-        with st.spinner("Generating PDF report..."):
-            pdf_generator = PDFGenerator(report, pdf_file)
-            pdf_generator.generate()
-
-        # Provide a download link for the generated PDF
-        with open(pdf_file, "rb") as file:
-            btn = st.download_button(
-                label="Download PDF Report",
-                data=file,
-                file_name=pdf_file,
-                mime="application/pdf",
-            )
-
-        # Optionally, remove the file after providing the download link
-        os.remove(pdf_file)
 
 
 def display_suggestions(suggestions):
