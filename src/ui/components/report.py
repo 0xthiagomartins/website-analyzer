@@ -3,6 +3,7 @@ from src.service import SEOAnalyzerService
 import streamlit as st
 import plotly.express as px
 import pandas as pd
+import re
 
 
 class Report:
@@ -34,8 +35,35 @@ class Report:
     def __render_warnings(self, warnings):
         if warnings:
             with st.expander("Warnings", expanded=False):
-                for warning in warnings:
-                    st.warning(warning)
+                grouped_warnings = self.__group_warnings(warnings)
+                for category, items in grouped_warnings.items():
+                    if isinstance(items, list):
+                        st.warning(
+                            f"{category}: " + ", ".join([item for item in items])
+                        )
+                    else:
+                        st.warning(f"{category}: " + items)
+
+    def __group_warnings(self, warnings):
+        grouped = {}
+        pattern = r"^(.*?):\s*(.*)$"
+
+        for warning in warnings:
+            match = re.match(pattern, warning)
+            if match:
+                key, value = match.groups()
+                if key in grouped:
+                    if isinstance(grouped[key], list):
+                        grouped[key].append(value)
+                    else:
+                        grouped[key] = [grouped[key], value]
+                else:
+                    grouped[key] = value
+            else:
+                # If the warning doesn't match the pattern, add it as is
+                grouped[warning] = warning
+
+        return grouped
 
     def __render_page_details(self, report, seo_service):
         st.subheader("Detailed Page Analysis")
@@ -44,7 +72,9 @@ class Report:
         if "selected_page" in st.session_state:
             page = report.pages[st.session_state["selected_page"]]
             st.write("---")
-            st.subheader(f"Details for Page {st.session_state['selected_page'] + 1}")
+            st.subheader(
+                f"Details for Page {st.session_state['selected_page'] + 1} - [{page.url}]({page.url})"
+            )
 
             # Create three columns for main page info
             col1, col2, col3 = st.columns(3)
@@ -55,16 +85,13 @@ class Report:
             with col3:
                 st.metric("Description Length", len(page.description))
 
-            # URL
-            st.markdown(f"**URL:** [{page.url}]({page.url})")
-
             # Title and Description
             with st.expander("Title and Description", expanded=True):
                 st.markdown(f"**Title:** {page.title}")
                 st.markdown(f"**Description:** {page.description}")
 
             # Top Keywords
-            with st.expander("Top Keywords", expanded=True):
+            with st.expander("Top Keywords", expanded=False):
                 keyword_data = pd.DataFrame(
                     page.keywords[:10], columns=["Count", "Keyword"]
                 )
@@ -196,10 +223,10 @@ class Report:
         if report.duplicate_pages:
             with st.expander("Duplicate Pages", expanded=True):
                 for i, duplicate_group in enumerate(report.duplicate_pages, 1):
-                    st.markdown(f"**Group {i}:**")
-                    for url in duplicate_group:
-                        st.markdown(f"- [{url}]({url})")
-                    st.markdown("---")
+                    st.markdown(
+                        f"**Group {i}:** "
+                        + ", ".join([f"[{url}]({url})" for url in duplicate_group])
+                    )
 
         # Error Summary
         if report.errors:
@@ -226,8 +253,3 @@ class Report:
         self.__render_page_details(report, seo_service)
 
         self.__render_errors(report.errors)
-
-        # Add a back button
-        if st.button("Back to Overview"):
-            del st.session_state["selected_page"]
-            st.rerun()

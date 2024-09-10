@@ -45,7 +45,7 @@ class PDFGenerator:
         self.cover_logo_image = self._get_logo(self.cover_logo_url)
 
         # Define custom colors
-        self.primary_color = colors.HexColor("#D33F49")
+        self.primary_color = colors.Color(red=0.827, green=0.247, blue=0.286)  # #D33F49
         self.background_color = colors.HexColor("#FBFFFE")
         self.text_color = colors.HexColor("#04080F")
 
@@ -324,7 +324,8 @@ class PDFGenerator:
     def _generate_content(self):
         self._create_title("1. Overview", "Heading2")
         self._create_overview_metrics()
-        self._create_keywords_chart()
+        self._create_title("Top 10 Keywords", "Heading3")
+        self._create_keywords_chart(self.report.keywords)  # Pass the keywords here
         self._create_duplicate_pages_section()
         self._create_error_summary()
         self._create_page_analysis_overview()
@@ -349,14 +350,22 @@ class PDFGenerator:
         ]
         self._create_table(data)
 
-    def _create_keywords_chart(self):
-        self._create_title("Top 10 Keywords", "Heading3")
-        if self.report.keywords:
+    def _create_keywords_chart(self, keywords):
+        if keywords:
             plt.figure(figsize=(8, 4))
-            keywords = [kw.word for kw in self.report.keywords[:10]]
-            counts = [kw.count for kw in self.report.keywords[:10]]
-            plt.bar(keywords, counts)
-            plt.title("Top 10 Keywords")
+            print("-" * 100)
+            print(keywords)
+            print("-" * 100)
+            try:
+                keywords_list = [kw.word for kw in keywords[:10]]
+                counts = [kw.count for kw in keywords[:10]]
+            except:
+                keywords_list = [kw[1] for kw in keywords[:10]]
+                counts = [kw[0] for kw in keywords[:10]]
+            plt.bar(
+                keywords_list, counts, color=self.primary_color.rgb()
+            )  # Use rgb() method instead of hexval
+            plt.title("Top Keywords")
             plt.xlabel("Keyword")
             plt.ylabel("Count")
             plt.xticks(rotation=45, ha="right")
@@ -370,6 +379,7 @@ class PDFGenerator:
             img.drawHeight = 3 * inch
             img.drawWidth = 6 * inch
             self.elements.append(img)
+            plt.close()
         else:
             self._create_paragraph("No keywords found.")
 
@@ -377,9 +387,10 @@ class PDFGenerator:
         if self.report.duplicate_pages:
             self._create_title("Duplicate Pages", "Heading3")
             for i, duplicate_group in enumerate(self.report.duplicate_pages, 1):
-                self._create_paragraph(f"Group {i}:")
-                for url in duplicate_group:
-                    self._create_paragraph(f"- {url}", "BodyText")
+                self._create_paragraph(
+                    f"Group {i}: " + ", ".join(url for url in duplicate_group),
+                    "BodyText",
+                )
 
     def _create_error_summary(self):
         if self.report.errors:
@@ -403,6 +414,7 @@ class PDFGenerator:
             img.drawHeight = 4 * inch
             img.drawWidth = 4 * inch
             self.elements.append(img)
+            plt.close()
 
     def _create_page_analysis_overview(self):
         self._create_title("Page Analysis Overview", "Heading3")
@@ -431,17 +443,20 @@ class PDFGenerator:
 
         self._create_paragraph(f"Title: {page.title}")
         self._create_paragraph(f"Description: {page.description}")
-
-        # Top Keywords
-        self._create_title("Top Keywords", "Heading4")
-        keyword_data = [["Keyword", "Count"]] + page.keywords[:10]
-        self._create_table(keyword_data)
+        self._create_keywords_chart(page.keywords[:10])
 
         # Warnings
         if page.warnings:
             self._create_title("Warnings", "Heading4")
-            for warning in page.warnings:
-                self._create_paragraph(f"- {warning}", "BodyText")
+            grouped_warnings = self._group_warnings(page.warnings)
+            for category, items in grouped_warnings.items():
+                if isinstance(items, list):
+                    self._create_paragraph(
+                        f"{category}: " + ", ".join([item for item in items]),
+                        "BodyText",
+                    )
+                else:
+                    self._create_paragraph(f"{category}: {items}", "BodyText")
 
         # W3C Validation
         if page.w3c_validation:
@@ -478,3 +493,24 @@ class PDFGenerator:
                     self._create_paragraph(msg.extract, "Code")
 
         self.elements.append(PageBreak())
+
+    def _group_warnings(self, warnings):
+        grouped = {}
+        pattern = r"^(.*?):\s*(.*)$"
+
+        for warning in warnings:
+            match = re.match(pattern, warning)
+            if match:
+                key, value = match.groups()
+                if key in grouped:
+                    if isinstance(grouped[key], list):
+                        grouped[key].append(value)
+                    else:
+                        grouped[key] = [grouped[key], value]
+                else:
+                    grouped[key] = value
+            else:
+                # If the warning doesn't match the pattern, add it as is
+                grouped[warning] = warning
+
+        return grouped
