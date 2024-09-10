@@ -52,8 +52,6 @@ def main():
                     file_name=pdf_file,
                     mime="application/pdf",
                 )
-
-            # Optionally, remove the file after providing the download link
             os.remove(pdf_file)
 
     if "suggestions" in st.session_state:

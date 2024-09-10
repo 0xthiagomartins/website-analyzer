@@ -4,6 +4,7 @@ import streamlit as st
 import plotly.express as px
 import pandas as pd
 import re
+import plotly.graph_objects as go
 
 
 class Report:
@@ -95,7 +96,19 @@ class Report:
                 keyword_data = pd.DataFrame(
                     page.keywords[:10], columns=["Count", "Keyword"]
                 )
-                st.bar_chart(keyword_data.set_index("Keyword"))
+                fig = go.Figure(
+                    go.Bar(
+                        x=keyword_data["Keyword"],
+                        y=keyword_data["Count"],
+                        marker_color="#D33F49",  # Set the bar color to match the primary color
+                    )
+                )
+                fig.update_layout(
+                    xaxis_title="Keyword",
+                    yaxis_title="Count",
+                    xaxis_tickangle=-45,
+                )
+                st.plotly_chart(fig, use_container_width=True)
 
             # Warnings
             self.__render_warnings(page.warnings)
@@ -213,7 +226,15 @@ class Report:
                     [(kw.word, kw.count) for kw in report.keywords[:10]],
                     columns=["Keyword", "Count"],
                 )
-                fig = px.bar(df, x="Keyword", y="Count", title="Top 10 Keywords")
+                fig = px.bar(
+                    df,
+                    x="Keyword",
+                    y="Count",
+                    title="Top 10 Keywords",
+                    color_discrete_sequence=[
+                        "#D33F49"
+                    ],  # Set the bar color to match the primary color
+                )
                 fig.update_layout(xaxis_title="Keyword", yaxis_title="Count")
                 st.plotly_chart(fig, use_container_width=True)
             else:
