@@ -37,10 +37,8 @@ class PDFGenerator:
         )
         self.styles = getSampleStyleSheet()
         self.elements = []
-        self.logo_url = "https://www.nassim.com.br/NassinAssets/NassinBrancoRemodel.png"
-        self.cover_logo_url = (
-            "https://www.nassim.com.br/NassinAssets/NassinPretoRemodel.png"
-        )
+        self.logo_url = "https://raw.githubusercontent.com/Nassim-Tecnologia/brand-assets/refs/heads/main/logo-marca-light-without-bg.png"
+        self.cover_logo_url = "https://raw.githubusercontent.com/Nassim-Tecnologia/brand-assets/refs/heads/main/logo-marca-dark-without-bg.png"
         self.logo_image = self._get_logo(self.logo_url)
         self.cover_logo_image = self._get_logo(self.cover_logo_url)
 

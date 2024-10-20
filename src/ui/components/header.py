@@ -7,8 +7,8 @@ def header():
         <div class="header-container">
             <div class="logo-container">
                 <a href="https://www.nassim.com.br" target="_blank">
-                    <img src="https://www.nassim.com.br/NassinAssets/NassinBrancoRemodel.png" alt="SEO Analyzer Logo" class="logo-default">
-                    <img src="https://www.nassim.com.br/NassinAssets/NassinVermelhoRemodel.png" alt="SEO Analyzer Logo Hover" class="logo-hover">
+                    <img src="https://raw.githubusercontent.com/Nassim-Tecnologia/brand-assets/refs/heads/main/logo-marca-light-without-bg.png" alt="SEO Analyzer Logo" class="logo-default">
+                    <img src="https://raw.githubusercontent.com/Nassim-Tecnologia/brand-assets/refs/heads/main/logo-marca-primary-without-bg.png" alt="SEO Analyzer Logo Hover" class="logo-hover">
                 </a>
             </div>
             <div class="title-container">
