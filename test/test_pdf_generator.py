@@ -1,7 +1,9 @@
+import io
 from ipaddress import ip_address
 
 import src.pdf_generator as pdf_generator_module
 import src.url_safety as url_safety
+from reportlab.platypus import Flowable
 from src.models import KeyWord, Page, Report, W3CMessage, W3CResponse
 
 
@@ -48,6 +50,19 @@ class FakePlotter:
         return None
 
 
+class DummyLogo(Flowable):
+    def __init__(self, width, height):
+        super().__init__()
+        self.drawWidth = width
+        self.drawHeight = height
+
+    def wrap(self, availWidth, availHeight):
+        return self.drawWidth, self.drawHeight
+
+    def draw(self):
+        return None
+
+
 def _install_pdf_story_test_doubles(monkeypatch):
     monkeypatch.setattr(pdf_generator_module, "Image", FakeImage)
     monkeypatch.setattr(pdf_generator_module, "plt", FakePlotter())
@@ -63,6 +78,19 @@ def _install_pdf_story_test_doubles(monkeypatch):
 def _install_logo_fetch_test_doubles(monkeypatch):
     monkeypatch.setattr(pdf_generator_module, "Image", FakeImage)
     monkeypatch.setattr(pdf_generator_module, "plt", FakePlotter())
+
+
+def _install_pdf_render_test_doubles(monkeypatch):
+    monkeypatch.setattr(
+        pdf_generator_module.PDFGenerator,
+        "_get_logo",
+        lambda self, url, width=0, height=0: DummyLogo(width or 100, height or 20),
+    )
+    monkeypatch.setattr(
+        pdf_generator_module.PDFGenerator,
+        "_create_keywords_chart",
+        lambda self, keywords: self._create_paragraph("Chart placeholder"),
+    )
 
 
 def _make_page(url, *, with_validation=False):
@@ -186,25 +214,36 @@ def test_build_story_handles_http_urls_validation_extracts_and_keyword_models(
     assert capsys.readouterr().out == ""
 
 
-def test_build_story_keeps_summary_and_section_numbering_in_sync(monkeypatch):
-    _install_pdf_story_test_doubles(monkeypatch)
+def test_generate_uses_real_page_numbers_in_table_of_contents(monkeypatch):
+    _install_pdf_render_test_doubles(monkeypatch)
     report = _make_report(
-        _make_page("https://example.com/one"),
+        Page(
+            url="https://example.com/one",
+            title="Example title for SEO testing",
+            description="Long content " * 2200,
+            word_count=420,
+            keywords=[KeyWord(word="seo", count=5), KeyWord(word="audit", count=3)],
+            bigrams=[],
+            trigrams=[],
+            warnings=["Title: Too short"],
+            content_hash="hash",
+            w3c_validation=None,
+        ),
         _make_page("https://example.com/two"),
     )
 
-    story = pdf_generator_module.PDFGenerator(report, "report.pdf").build_story()
-    texts = _paragraph_texts(story)
+    output = io.BytesIO()
+    generator = pdf_generator_module.PDFGenerator(report, output)
+    generator.generate()
+    pages_by_title = {
+        entry[1]: entry[2] for entry in generator.table_of_contents._entries
+    }
 
-    assert any(text.startswith("2. Keywords ") for text in texts)
-    assert "3. Page Analysis" in texts
-    assert any(text.startswith("3. Page Analysis ") for text in texts)
-    assert "3.1. https://example.com/one" in texts
-    assert "3.2. https://example.com/two" in texts
-    assert any(text.startswith("3.1. https://example.com/one ") for text in texts)
-    assert any(text.startswith("3.2. https://example.com/two ") for text in texts)
-    assert "2. Page Analysis" not in texts
-    assert not any(text.startswith("2. Page Analysis ") for text in texts)
+    assert output.getvalue().startswith(b"%PDF")
+    assert pages_by_title["1. Overview"] == 3
+    assert pages_by_title["3.2. https://example.com/two"] > pages_by_title[
+        "3.1. https://example.com/one"
+    ]
 
 
 def test_pdf_generator_fetches_each_logo_url_only_once_per_instance(monkeypatch):

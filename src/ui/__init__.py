@@ -2,10 +2,11 @@ import streamlit as st
 from src.service import SEOAnalyzerService
 from src.pdf_generator import PDFGenerator
 from src.url_safety import UnsafeUrlError, validate_public_url
-import os
 from .components.header import header
 from .conf import configure
 from .components.report import ReportView
+
+PDF_FILE_NAME = "seo_analysis_report.pdf"
 
 
 def initialize_session_state():
@@ -16,9 +17,35 @@ def initialize_session_state():
 
 
 def reset_analysis_state():
-    for key in ("report", "suggestions", "selected_page"):
+    for key in ("report", "suggestions", "selected_page", "pdf_data", "pdf_file_name"):
         st.session_state.pop(key, None)
     st.session_state["analysis_complete"] = False
+
+
+def create_pdf_download():
+    try:
+        with st.spinner("Generating PDF report..."):
+            pdf_data = PDFGenerator.generate_bytes(st.session_state["report"])
+    except Exception as exc:
+        st.session_state.pop("pdf_data", None)
+        st.session_state.pop("pdf_file_name", None)
+        st.error(f"Unable to generate the PDF report: {exc}")
+    else:
+        st.session_state["pdf_data"] = pdf_data
+        st.session_state["pdf_file_name"] = PDF_FILE_NAME
+
+
+def render_pdf_download_button():
+    pdf_data = st.session_state.get("pdf_data")
+    if pdf_data is None:
+        return
+
+    st.download_button(
+        label="Download PDF Report",
+        data=pdf_data,
+        file_name=st.session_state.get("pdf_file_name", PDF_FILE_NAME),
+        mime="application/pdf",
+    )
 
 
 def main():
@@ -56,24 +83,10 @@ def main():
             )
             st.session_state["suggestions"] = suggestions
 
-        # Add a button to generate PDF report
         if st.button("Generate PDF Report"):
-            pdf_file = "seo_analysis_report.pdf"
-            try:
-                with st.spinner("Generating PDF report..."):
-                    pdf_generator = PDFGenerator(st.session_state["report"], pdf_file)
-                    pdf_generator.generate()
-            except Exception as exc:
-                st.error(f"Unable to generate the PDF report: {exc}")
-            else:
-                with open(pdf_file, "rb") as file:
-                    st.download_button(
-                        label="Download PDF Report",
-                        data=file,
-                        file_name=pdf_file,
-                        mime="application/pdf",
-                    )
-                os.remove(pdf_file)
+            create_pdf_download()
+
+        render_pdf_download_button()
 
     if "suggestions" in st.session_state:
         display_suggestions(st.session_state["suggestions"])

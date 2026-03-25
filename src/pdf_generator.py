@@ -9,9 +9,9 @@ from reportlab.platypus import (
     PageBreak,
     Image,
 )
+from reportlab.platypus.tableofcontents import TableOfContents
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import cm, inch
-from reportlab.pdfgen import canvas
+from reportlab.lib.units import inch
 from reportlab.lib.enums import TA_JUSTIFY, TA_CENTER, TA_LEFT
 from datetime import datetime
 from src.models import Report
@@ -26,13 +26,30 @@ import io
 from urllib.parse import urlsplit
 
 
+class SEOReportDocTemplate(SimpleDocTemplate):
+    def afterFlowable(self, flowable):
+        super().afterFlowable(flowable)
+
+        toc_level = getattr(flowable, "_toc_level", None)
+        if toc_level is None or not isinstance(flowable, Paragraph):
+            return
+
+        title = flowable.getPlainText()
+        bookmark_name = getattr(flowable, "_bookmark_name", None)
+        if bookmark_name is not None:
+            self.canv.bookmarkPage(bookmark_name)
+            self.canv.addOutlineEntry(title, bookmark_name, level=toc_level, closed=False)
+
+        self.notify("TOCEntry", (toc_level, title, self.page, bookmark_name))
+
+
 class PDFGenerator:
     _logo_cache: dict[str, bytes] = {}
 
-    def __init__(self, report: Report, filename: str):
+    def __init__(self, report: Report, filename):
         self.report = report
         self.filename = filename
-        self.doc = SimpleDocTemplate(
+        self.doc = SEOReportDocTemplate(
             filename,
             pagesize=A4,
             rightMargin=72,
@@ -42,6 +59,8 @@ class PDFGenerator:
         )
         self.styles = getSampleStyleSheet()
         self.elements = []
+        self.table_of_contents = None
+        self._heading_index = 0
         self.logo_url = "https://raw.githubusercontent.com/Nassim-Tecnologia/brand-assets/refs/heads/main/logo-marca-light-without-bg.png"
         self.cover_logo_url = "https://raw.githubusercontent.com/Nassim-Tecnologia/brand-assets/refs/heads/main/logo-marca-dark-without-bg.png"
         self.logo_image = self._get_logo(self.logo_url)
@@ -161,8 +180,20 @@ class PDFGenerator:
 
         canvas.restoreState()
 
-    def _create_title(self, text, style="Heading1"):
-        self.elements.append(Paragraph(text, self.styles[style]))
+    @classmethod
+    def generate_bytes(cls, report: Report) -> bytes:
+        buffer = BytesIO()
+        cls(report, buffer).generate()
+        return buffer.getvalue()
+
+    def _create_title(self, text, style="Heading1", toc_level=None):
+        paragraph = Paragraph(text, self.styles[style])
+        if toc_level is not None:
+            paragraph._toc_level = toc_level
+            paragraph._bookmark_name = f"section-{self._heading_index}"
+            self._heading_index += 1
+
+        self.elements.append(paragraph)
         self.elements.append(Spacer(1, 12))
 
     def _create_paragraph(self, text, style="BodyText"):
@@ -251,62 +282,28 @@ class PDFGenerator:
         self.elements.append(desc_table)
 
     def _create_summary_page(self):
-        summary_elements = []
-        summary_elements.append(Paragraph("Table of Contents", self.styles["Heading1"]))
-        summary_elements.append(Spacer(1, 20))
-
         summary_style = ParagraphStyle(
             name="SummaryItem",
             parent=self.styles["Normal"],
             firstLineIndent=0,
             alignment=TA_LEFT,
+            leading=14,
         )
-
         indented_summary_style = ParagraphStyle(
             name="IndentedSummaryItem",
             parent=summary_style,
             leftIndent=20,
         )
 
-        # Find the correct page numbers
-        overview_page = self._find_page_number("1. Overview")
-        keywords_page = self._find_page_number("2. Keywords")
-        page_analysis_start = self._find_page_number("3. Page Analysis")
+        self.table_of_contents = TableOfContents()
+        self.table_of_contents.levelStyles = [summary_style, indented_summary_style]
+        self.table_of_contents.dotsMinLevel = 0
 
-        # Add summary items with correct page numbers
-        self._add_summary_item(
-            "1. Overview", overview_page, summary_style, summary_elements
-        )
-        self._add_summary_item(
-            "2. Keywords", keywords_page, summary_style, summary_elements
-        )
-        self._add_summary_item(
-            "3. Page Analysis", page_analysis_start, summary_style, summary_elements
-        )
-
-        # Add subtitles for Page Analysis
-        for i, page in enumerate(self.report.pages, 1):
-            page_number = self._find_page_number(f"3.{i}. {page.url}")
-            self._add_summary_item(
-                f"3.{i}. {page.url}",
-                page_number,
-                indented_summary_style,
-                summary_elements,
-            )
-
-        return summary_elements
-
-    def _find_page_number(self, title):
-        for i, element in enumerate(self.elements):
-            if isinstance(element, Paragraph) and element.getPlainText() == title:
-                return (i // 45) + 3  # Approximate number of elements per page
-        return None
-
-    def _add_summary_item(self, text, page, style, elements):
-        if page is not None:
-            item_text = f"{text} {'.' * (70 - len(text) - len(str(page)))} {page}"
-            elements.append(Paragraph(item_text, style))
-            elements.append(Spacer(1, 5))
+        return [
+            Paragraph("Table of Contents", self.styles["Heading1"]),
+            Spacer(1, 20),
+            self.table_of_contents,
+        ]
 
     @staticmethod
     def _format_report_subject(url: str) -> str:
@@ -320,25 +317,16 @@ class PDFGenerator:
 
     def build_story(self):
         self.elements = []
+        self._heading_index = 0
 
         # Create cover page (no header/footer)
         self._create_cover_page()
 
-        # Create a placeholder for the summary page
         self.elements.append(PageBreak())
-        summary_placeholder = PageBreak()
-        self.elements.append(summary_placeholder)
+        self.elements.extend(self._create_summary_page())
         self.elements.append(PageBreak())
 
-        # Generate the rest of the content
         self._generate_content()
-
-        # Create the summary page with accurate page numbers
-        summary_elements = self._create_summary_page()
-
-        # Insert the summary page at the correct position
-        summary_index = self.elements.index(summary_placeholder)
-        self.elements[summary_index : summary_index + 1] = summary_elements
 
         return list(self.elements)
 
@@ -359,23 +347,23 @@ class PDFGenerator:
             self._header_footer(canvas, doc)
             canvas.restoreState()
 
-        self.doc.build(
+        self.doc.multiBuild(
             story,
             onFirstPage=first_page,
             onLaterPages=later_pages,
         )
 
     def _generate_content(self):
-        self._create_title("1. Overview", "Heading2")
+        self._create_title("1. Overview", "Heading2", toc_level=0)
         self._create_overview_metrics()
-        self._create_title("2. Keywords", "Heading2")
+        self._create_title("2. Keywords", "Heading2", toc_level=0)
         self._create_title("Top 10 Keywords", "Heading3")
         self._create_keywords_chart(self.report.keywords)  # Pass the keywords here
         self._create_duplicate_pages_section()
         self._create_error_summary()
         self._create_page_analysis_overview()
 
-        self._create_title("3. Page Analysis", "Heading2")
+        self._create_title("3. Page Analysis", "Heading2", toc_level=0)
         for i, page in enumerate(self.report.pages, 1):
             self._create_page_details(i, page)
 
@@ -470,7 +458,7 @@ class PDFGenerator:
         self._create_table(data)
 
     def _create_page_details(self, index, page):
-        self._create_title(f"3.{index}. {page.url}", "Heading3")
+        self._create_title(f"3.{index}. {page.url}", "Heading3", toc_level=1)
 
         # Create a table for main page info
         data = [
