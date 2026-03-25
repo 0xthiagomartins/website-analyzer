@@ -1,5 +1,5 @@
-from ipaddress import ip_address
 import logging
+from ipaddress import ip_address
 
 import pytest
 

@@ -1,10 +1,12 @@
 import streamlit as st
-from src.service import SEOAnalyzerService
+
 from src.pdf_generator import PDFGenerator
+from src.service import SEOAnalyzerService
 from src.url_safety import UnsafeUrlError, validate_public_url
+
 from .components.header import header
-from .conf import configure
 from .components.report import ReportView
+from .conf import configure
 
 PDF_FILE_NAME = "seo_analysis_report.pdf"
 

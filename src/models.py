@@ -1,5 +1,6 @@
-from pydantic import BaseModel, Field
 from collections import Counter
+
+from pydantic import BaseModel, Field
 
 
 class W3CMessage(BaseModel):

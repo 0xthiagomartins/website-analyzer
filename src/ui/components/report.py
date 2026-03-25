@@ -1,11 +1,12 @@
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+import streamlit as st
+
 from src.models import Report as ReportModel
 from src.service import SEOAnalyzerService
-from src.utils import group_warnings
 from src.url_safety import UnsafeUrlError
-import streamlit as st
-import plotly.express as px
-import pandas as pd
-import plotly.graph_objects as go
+from src.utils import group_warnings
 
 
 class ReportView:

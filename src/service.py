@@ -1,10 +1,12 @@
 import json
 import logging
-from pyseoanalyzer import analyze
-from src.models import Report, Page, KeyWord, W3CResponse, W3CMessage
-from src.url_safety import validate_public_url
 from collections import Counter
+
 import requests
+from pyseoanalyzer import analyze
+
+from src.models import KeyWord, Page, Report, W3CMessage, W3CResponse
+from src.url_safety import validate_public_url
 
 
 logger = logging.getLogger(__name__)

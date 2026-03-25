@@ -1,29 +1,31 @@
-from reportlab.lib.pagesizes import A4
+import io
+import re
+from datetime import datetime
+from html import escape
+from io import BytesIO
+from urllib.parse import urlsplit
+
+import matplotlib.pyplot as plt
+import requests
 from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.lib.units import inch
 from reportlab.platypus import (
-    SimpleDocTemplate,
+    Image,
+    PageBreak,
     Paragraph,
+    SimpleDocTemplate,
     Spacer,
     Table,
     TableStyle,
-    PageBreak,
-    Image,
 )
 from reportlab.platypus.tableofcontents import TableOfContents
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import inch
-from reportlab.lib.enums import TA_JUSTIFY, TA_CENTER, TA_LEFT
-from datetime import datetime
+
 from src.models import Report
 from src.url_safety import validate_logo_url
 from src.utils import group_warnings
-import requests
-from io import BytesIO
-import re
-from html import escape
-import matplotlib.pyplot as plt
-import io
-from urllib.parse import urlsplit
 
 
 class SEOReportDocTemplate(SimpleDocTemplate):
@@ -246,7 +248,7 @@ class PDFGenerator:
         self.elements.append(Spacer(1, 50))  # Increased spacing
 
         # Subtitle
-        self.elements.append(Paragraph(f"Analysis for:", self.styles["Subtitle"]))
+        self.elements.append(Paragraph("Analysis for:", self.styles["Subtitle"]))
         self.elements.append(
             Paragraph(self._format_report_subject(self.report.pages[0].url), self.styles["Subtitle"])
         )

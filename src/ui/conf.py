@@ -1,6 +1,6 @@
 import streamlit as st
-from .trusted_html import render_trusted_html
 
+from .trusted_html import render_trusted_html
 
 custom_css = """
 <style>

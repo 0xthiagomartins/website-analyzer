@@ -2,7 +2,6 @@ import ipaddress
 import socket
 from urllib.parse import urlsplit, urlunsplit
 
-
 ALLOWED_WEB_SCHEMES = frozenset({"http", "https"})
 ALLOWED_LOGO_HOSTS = frozenset({"raw.githubusercontent.com"})
 

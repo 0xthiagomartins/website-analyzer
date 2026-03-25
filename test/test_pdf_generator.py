@@ -1,9 +1,10 @@
 import io
 from ipaddress import ip_address
 
+from reportlab.platypus import Flowable
+
 import src.pdf_generator as pdf_generator_module
 import src.url_safety as url_safety
-from reportlab.platypus import Flowable
 from src.models import KeyWord, Page, Report, W3CMessage, W3CResponse
 
 
