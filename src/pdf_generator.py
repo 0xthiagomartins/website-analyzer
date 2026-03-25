@@ -22,6 +22,7 @@ import re
 from html import escape
 import matplotlib.pyplot as plt
 import io
+from urllib.parse import urlsplit
 
 
 class PDFGenerator:
@@ -86,6 +87,18 @@ class PDFGenerator:
                 alignment=TA_CENTER,
             )
         )
+
+        if "Code" not in self.styles.byName:
+            self.styles.add(
+                ParagraphStyle(
+                    name="Code",
+                    parent=self.styles["BodyText"],
+                    fontName="Courier",
+                    fontSize=9,
+                    leading=11,
+                    leftIndent=12,
+                )
+            )
 
     def _header_footer(self, canvas, doc):
         canvas.saveState()
@@ -193,7 +206,7 @@ class PDFGenerator:
         # Subtitle
         self.elements.append(Paragraph(f"Analysis for:", self.styles["Subtitle"]))
         self.elements.append(
-            Paragraph(f"{self.report.pages[0].url[8:]}", self.styles["Subtitle"])
+            Paragraph(self._format_report_subject(self.report.pages[0].url), self.styles["Subtitle"])
         )
         self.elements.append(Spacer(1, 100))  # Increased spacing
 
@@ -274,7 +287,7 @@ class PDFGenerator:
 
     def _find_page_number(self, title):
         for i, element in enumerate(self.elements):
-            if isinstance(element, Paragraph) and element.text == title:
+            if isinstance(element, Paragraph) and element.getPlainText() == title:
                 return (i // 45) + 3  # Approximate number of elements per page
         return None
 
@@ -284,7 +297,19 @@ class PDFGenerator:
             elements.append(Paragraph(item_text, style))
             elements.append(Spacer(1, 5))
 
-    def generate(self):
+    @staticmethod
+    def _format_report_subject(url: str) -> str:
+        parsed = urlsplit(url)
+        if not parsed.netloc:
+            return url
+
+        path = "" if parsed.path in ("", "/") else parsed.path
+        query = f"?{parsed.query}" if parsed.query else ""
+        return f"{parsed.netloc}{path}{query}"
+
+    def build_story(self):
+        self.elements = []
+
         # Create cover page (no header/footer)
         self._create_cover_page()
 
@@ -304,6 +329,11 @@ class PDFGenerator:
         summary_index = self.elements.index(summary_placeholder)
         self.elements[summary_index : summary_index + 1] = summary_elements
 
+        return list(self.elements)
+
+    def generate(self):
+        story = self.build_story()
+
         def first_page(canvas, doc):
             # No header/footer for the first page (cover)
             canvas.saveState()
@@ -319,7 +349,7 @@ class PDFGenerator:
             canvas.restoreState()
 
         self.doc.build(
-            self.elements,
+            story,
             onFirstPage=first_page,
             onLaterPages=later_pages,
         )
@@ -327,13 +357,14 @@ class PDFGenerator:
     def _generate_content(self):
         self._create_title("1. Overview", "Heading2")
         self._create_overview_metrics()
+        self._create_title("2. Keywords", "Heading2")
         self._create_title("Top 10 Keywords", "Heading3")
         self._create_keywords_chart(self.report.keywords)  # Pass the keywords here
         self._create_duplicate_pages_section()
         self._create_error_summary()
         self._create_page_analysis_overview()
 
-        self._create_title("2. Page Analysis", "Heading2")
+        self._create_title("3. Page Analysis", "Heading2")
         for i, page in enumerate(self.report.pages, 1):
             self._create_page_details(i, page)
 
@@ -356,13 +387,10 @@ class PDFGenerator:
     def _create_keywords_chart(self, keywords):
         if keywords:
             plt.figure(figsize=(8, 4))
-            print("-" * 100)
-            print(keywords)
-            print("-" * 100)
             try:
                 keywords_list = [kw.word for kw in keywords[:10]]
                 counts = [kw.count for kw in keywords[:10]]
-            except:
+            except (AttributeError, TypeError, IndexError):
                 keywords_list = [kw[1] for kw in keywords[:10]]
                 counts = [kw[0] for kw in keywords[:10]]
             plt.bar(
@@ -435,7 +463,7 @@ class PDFGenerator:
         self._create_table(data)
 
     def _create_page_details(self, index, page):
-        self._create_title(f"2.{index}. {page.url}", "Heading3")
+        self._create_title(f"3.{index}. {page.url}", "Heading3")
 
         # Create a table for main page info
         data = [

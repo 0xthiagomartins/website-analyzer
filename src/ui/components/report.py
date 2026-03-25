@@ -1,4 +1,4 @@
-from src.models import Report
+from src.models import Report as ReportModel
 from src.service import SEOAnalyzerService
 from src.url_safety import UnsafeUrlError
 import streamlit as st
@@ -8,7 +8,7 @@ import re
 import plotly.graph_objects as go
 
 
-class Report:
+class ReportView:
     def __init__(self):
         self.display()
 
@@ -271,7 +271,7 @@ class Report:
                 st.plotly_chart(fig, use_container_width=True)
 
     def display(self):
-        report: Report = st.session_state["report"]
+        report: ReportModel = st.session_state["report"]
         seo_service: SEOAnalyzerService = st.session_state["seo_service"]
 
         self.__render_overall_overview(report)

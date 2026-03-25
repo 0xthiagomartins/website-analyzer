@@ -5,7 +5,7 @@ from src.url_safety import UnsafeUrlError, validate_public_url
 import os
 from .components.header import header
 from .conf import configure
-from .components.report import Report
+from .components.report import ReportView
 
 
 def initialize_session_state():
@@ -48,7 +48,7 @@ def main():
                     st.session_state["analysis_complete"] = True
 
     if st.session_state.get("analysis_complete", False):
-        Report()
+        ReportView()
         st.write("---")
         if st.button("Generate Suggestions"):
             suggestions = st.session_state["seo_service"].generate_suggestions(
