@@ -27,6 +27,8 @@ from urllib.parse import urlsplit
 
 
 class PDFGenerator:
+    _logo_cache: dict[str, bytes] = {}
+
     def __init__(self, report: Report, filename: str):
         self.report = report
         self.filename = filename
@@ -43,7 +45,9 @@ class PDFGenerator:
         self.logo_url = "https://raw.githubusercontent.com/Nassim-Tecnologia/brand-assets/refs/heads/main/logo-marca-light-without-bg.png"
         self.cover_logo_url = "https://raw.githubusercontent.com/Nassim-Tecnologia/brand-assets/refs/heads/main/logo-marca-dark-without-bg.png"
         self.logo_image = self._get_logo(self.logo_url)
-        self.cover_logo_image = self._get_logo(self.cover_logo_url)
+        self.cover_logo_image = self._get_logo(
+            self.cover_logo_url, width=3.75 * inch, height=1.25 * inch
+        )
 
         # Define custom colors
         self.primary_color = colors.Color(red=0.827, green=0.247, blue=0.286)  # #D33F49
@@ -54,12 +58,22 @@ class PDFGenerator:
         self._update_styles()
 
     def _get_logo(self, url, width=1.5 * inch, height=0.5 * inch):
+        image_bytes = self._get_logo_bytes(url)
+        return Image(BytesIO(image_bytes), width=width, height=height)
+
+    @classmethod
+    def _get_logo_bytes(cls, url: str) -> bytes:
         safe_url = validate_logo_url(url)
+        cached_bytes = cls._logo_cache.get(safe_url)
+        if cached_bytes is not None:
+            return cached_bytes
+
         response = requests.get(safe_url, timeout=10, allow_redirects=False)
         if 300 <= response.status_code < 400:
             raise ValueError("Logo URLs must not redirect.")
         response.raise_for_status()
-        return Image(BytesIO(response.content), width=width, height=height)
+        cls._logo_cache[safe_url] = response.content
+        return response.content
 
     def _update_styles(self):
         for style in self.styles.byName.values():
@@ -185,12 +199,8 @@ class PDFGenerator:
         self.elements.append(Spacer(1, 12))
 
     def _create_cover_page(self):
-        # Use the cover logo image with increased size
-        cover_logo = self._get_logo(
-            self.cover_logo_url, width=3.75 * inch, height=1.25 * inch
-        )
         self.elements.append(Spacer(1, 30))  # Increased spacing
-        self.elements.append(cover_logo)
+        self.elements.append(self.cover_logo_image)
         self.elements.append(Spacer(1, 80))  # Increased spacing
 
         # Title

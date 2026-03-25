@@ -48,7 +48,7 @@ class FakePlotter:
         return None
 
 
-def _install_pdf_test_doubles(monkeypatch):
+def _install_pdf_story_test_doubles(monkeypatch):
     monkeypatch.setattr(pdf_generator_module, "Image", FakeImage)
     monkeypatch.setattr(pdf_generator_module, "plt", FakePlotter())
     monkeypatch.setattr(
@@ -58,6 +58,11 @@ def _install_pdf_test_doubles(monkeypatch):
             url, width=width, height=height
         ),
     )
+
+
+def _install_logo_fetch_test_doubles(monkeypatch):
+    monkeypatch.setattr(pdf_generator_module, "Image", FakeImage)
+    monkeypatch.setattr(pdf_generator_module, "plt", FakePlotter())
 
 
 def _make_page(url, *, with_validation=False):
@@ -118,6 +123,7 @@ def _paragraph_texts(story):
 
 def test_get_logo_fetches_only_allowlisted_https_urls(monkeypatch):
     generator = pdf_generator_module.PDFGenerator.__new__(pdf_generator_module.PDFGenerator)
+    pdf_generator_module.PDFGenerator._logo_cache.clear()
     monkeypatch.setattr(
         url_safety,
         "_resolve_ip_addresses",
@@ -165,7 +171,7 @@ def test_get_logo_fetches_only_allowlisted_https_urls(monkeypatch):
 def test_build_story_handles_http_urls_validation_extracts_and_keyword_models(
     monkeypatch, capsys
 ):
-    _install_pdf_test_doubles(monkeypatch)
+    _install_pdf_story_test_doubles(monkeypatch)
     report = _make_report(
         _make_page("http://example.com/blog/post", with_validation=True)
     )
@@ -181,7 +187,7 @@ def test_build_story_handles_http_urls_validation_extracts_and_keyword_models(
 
 
 def test_build_story_keeps_summary_and_section_numbering_in_sync(monkeypatch):
-    _install_pdf_test_doubles(monkeypatch)
+    _install_pdf_story_test_doubles(monkeypatch)
     report = _make_report(
         _make_page("https://example.com/one"),
         _make_page("https://example.com/two"),
@@ -199,3 +205,80 @@ def test_build_story_keeps_summary_and_section_numbering_in_sync(monkeypatch):
     assert any(text.startswith("3.2. https://example.com/two ") for text in texts)
     assert "2. Page Analysis" not in texts
     assert not any(text.startswith("2. Page Analysis ") for text in texts)
+
+
+def test_pdf_generator_fetches_each_logo_url_only_once_per_instance(monkeypatch):
+    _install_logo_fetch_test_doubles(monkeypatch)
+    pdf_generator_module.PDFGenerator._logo_cache.clear()
+    monkeypatch.setattr(
+        url_safety,
+        "_resolve_ip_addresses",
+        lambda hostname: {ip_address("185.199.108.133")},
+    )
+
+    requests_made = []
+
+    class FakeResponse:
+        status_code = 200
+        content = b"image-bytes"
+
+        def raise_for_status(self):
+            return None
+
+    def fake_get(url, timeout, allow_redirects):
+        requests_made.append((url, timeout, allow_redirects))
+        return FakeResponse()
+
+    monkeypatch.setattr(pdf_generator_module.requests, "get", fake_get)
+
+    generator = pdf_generator_module.PDFGenerator(
+        _make_report(_make_page("https://example.com")), "report.pdf"
+    )
+    generator.build_story()
+
+    assert requests_made == [
+        (generator.logo_url, 10, False),
+        (generator.cover_logo_url, 10, False),
+    ]
+
+
+def test_pdf_generator_reuses_cached_logo_bytes_across_instances(monkeypatch):
+    _install_logo_fetch_test_doubles(monkeypatch)
+    pdf_generator_module.PDFGenerator._logo_cache.clear()
+    monkeypatch.setattr(
+        url_safety,
+        "_resolve_ip_addresses",
+        lambda hostname: {ip_address("185.199.108.133")},
+    )
+
+    requests_made = []
+
+    class FakeResponse:
+        status_code = 200
+        content = b"image-bytes"
+
+        def raise_for_status(self):
+            return None
+
+    def fake_get(url, timeout, allow_redirects):
+        requests_made.append((url, timeout, allow_redirects))
+        return FakeResponse()
+
+    monkeypatch.setattr(pdf_generator_module.requests, "get", fake_get)
+
+    report = _make_report(_make_page("https://example.com"))
+    pdf_generator_module.PDFGenerator(report, "first.pdf")
+    pdf_generator_module.PDFGenerator(report, "second.pdf")
+
+    assert requests_made == [
+        (
+            "https://raw.githubusercontent.com/Nassim-Tecnologia/brand-assets/refs/heads/main/logo-marca-light-without-bg.png",
+            10,
+            False,
+        ),
+        (
+            "https://raw.githubusercontent.com/Nassim-Tecnologia/brand-assets/refs/heads/main/logo-marca-dark-without-bg.png",
+            10,
+            False,
+        ),
+    ]
