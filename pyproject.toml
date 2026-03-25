@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "website-analyser"
+version = "0.1.0"
+description = "SEO analysis app with Streamlit reports and PDF export."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { file = "LICENSE" }
+authors = [{ name = "Thiago Martins" }]
+dependencies = [
+    "pyseoanalyzer==2024.4.21",
+    "pydantic==2.8.2",
+    "streamlit==1.38.0",
+    "requests==2.32.3",
+    "pandas==2.2.2",
+    "reportlab==4.2.2",
+    "plotly==5.24.0",
+    "matplotlib==3.9.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==8.3.2",
+    "pytest-cov>=5.0.0,<6.0.0",
+    "ruff>=0.6.2,<0.7.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["src*"]
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["test"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+src = ["src", "test"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["src"]
+
+[tool.ruff.format]
+quote-style = "double"

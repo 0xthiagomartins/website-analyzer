@@ -17,8 +17,8 @@ SEO Analyzer is a powerful tool designed to help you analyze and improve your we
 
 1. Clone the repository:
    ```
-   git clone https://github.com/your-username/seo-analyzer.git
-   cd seo-analyzer
+   git clone https://github.com/0xthiagomartins/website-analyser.git
+   cd website-analyser
    ```
 
 2. Create a virtual environment (optional but recommended):
@@ -27,9 +27,9 @@ SEO Analyzer is a powerful tool designed to help you analyze and improve your we
    source venv/bin/activate  # On Windows, use `venv\Scripts\activate`
    ```
 
-3. Install the required packages:
+3. Install the project in editable mode with development tooling:
    ```
-   pip install -r requirements.txt
+   pip install -e ".[dev]"
    ```
 
 ## Usage
@@ -47,6 +47,12 @@ SEO Analyzer is a powerful tool designed to help you analyze and improve your we
 
 5. Generate a PDF report for offline viewing or sharing by clicking the "Generate PDF Report" button.
 
+## Development
+
+- Run tests with `pytest`
+- Run lint checks with `ruff check .`
+- The project metadata, dependencies, pytest settings, and Ruff configuration live in `pyproject.toml`
+
 ## Project Structure
 
 - `src/`: Contains the main source code for the project.
@@ -55,7 +61,8 @@ SEO Analyzer is a powerful tool designed to help you analyze and improve your we
   - `service.py`: Core SEO analysis service.
   - `pdf_generator.py`: PDF report generation functionality.
 - `run.py`: Entry point for running the Streamlit app.
-- `requirements.txt`: List of Python dependencies.
+- `pyproject.toml`: Project metadata, dependencies, and tooling configuration.
+- `.github/workflows/ci.yml`: Automated lint and test pipeline for pushes and pull requests.
 
 ## Contributing
 

@@ -1,10 +1,6 @@
 import importlib.util
-import os
 import sys
 from types import ModuleType
-
-# Add the parent directory of 'src' to sys.path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 
 def _install_optional_dependency_stubs():
