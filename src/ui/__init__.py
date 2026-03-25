@@ -1,6 +1,7 @@
 import streamlit as st
 from src.service import SEOAnalyzerService
 from src.pdf_generator import PDFGenerator
+from src.url_safety import UnsafeUrlError, validate_public_url
 import os
 from .components.header import header
 from .conf import configure
@@ -10,6 +11,14 @@ from .components.report import Report
 def initialize_session_state():
     if "seo_service" not in st.session_state:
         st.session_state["seo_service"] = SEOAnalyzerService()
+    if "analysis_complete" not in st.session_state:
+        st.session_state["analysis_complete"] = False
+
+
+def reset_analysis_state():
+    for key in ("report", "suggestions", "selected_page"):
+        st.session_state.pop(key, None)
+    st.session_state["analysis_complete"] = False
 
 
 def main():
@@ -20,13 +29,23 @@ def main():
     url = st.text_input("Enter the website URL to analyze:")
 
     if st.button("Analyze"):
-        if url:
-            with st.spinner("Analyzing..."):
-                report = st.session_state["seo_service"].analyze(url)
-                st.session_state["report"] = report
-                st.session_state["analysis_complete"] = True
-        else:
+        reset_analysis_state()
+        if not url:
             st.warning("Please enter a valid URL.")
+        else:
+            try:
+                safe_url = validate_public_url(url)
+            except UnsafeUrlError as exc:
+                st.warning(str(exc))
+            else:
+                try:
+                    with st.spinner("Analyzing..."):
+                        report = st.session_state["seo_service"].analyze(safe_url)
+                except Exception as exc:
+                    st.error(f"Unable to analyze the URL: {exc}")
+                else:
+                    st.session_state["report"] = report
+                    st.session_state["analysis_complete"] = True
 
     if st.session_state.get("analysis_complete", False):
         Report()
@@ -40,19 +59,21 @@ def main():
         # Add a button to generate PDF report
         if st.button("Generate PDF Report"):
             pdf_file = "seo_analysis_report.pdf"
-            with st.spinner("Generating PDF report..."):
-                pdf_generator = PDFGenerator(st.session_state["report"], pdf_file)
-                pdf_generator.generate()
-
-            # Provide a download link for the generated PDF
-            with open(pdf_file, "rb") as file:
-                btn = st.download_button(
-                    label="Download PDF Report",
-                    data=file,
-                    file_name=pdf_file,
-                    mime="application/pdf",
-                )
-            os.remove(pdf_file)
+            try:
+                with st.spinner("Generating PDF report..."):
+                    pdf_generator = PDFGenerator(st.session_state["report"], pdf_file)
+                    pdf_generator.generate()
+            except Exception as exc:
+                st.error(f"Unable to generate the PDF report: {exc}")
+            else:
+                with open(pdf_file, "rb") as file:
+                    st.download_button(
+                        label="Download PDF Report",
+                        data=file,
+                        file_name=pdf_file,
+                        mime="application/pdf",
+                    )
+                os.remove(pdf_file)
 
     if "suggestions" in st.session_state:
         display_suggestions(st.session_state["suggestions"])

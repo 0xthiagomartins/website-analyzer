@@ -15,6 +15,7 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.enums import TA_JUSTIFY, TA_CENTER, TA_LEFT
 from datetime import datetime
 from src.models import Report
+from src.url_safety import validate_logo_url
 import requests
 from io import BytesIO
 import re
@@ -51,7 +52,11 @@ class PDFGenerator:
         self._update_styles()
 
     def _get_logo(self, url, width=1.5 * inch, height=0.5 * inch):
-        response = requests.get(url)
+        safe_url = validate_logo_url(url)
+        response = requests.get(safe_url, timeout=10, allow_redirects=False)
+        if 300 <= response.status_code < 400:
+            raise ValueError("Logo URLs must not redirect.")
+        response.raise_for_status()
         return Image(BytesIO(response.content), width=width, height=height)
 
     def _update_styles(self):

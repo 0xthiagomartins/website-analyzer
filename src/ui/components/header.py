@@ -1,8 +1,8 @@
-import streamlit as st
+from ..trusted_html import render_trusted_html
 
 
 def header():
-    st.markdown(
+    render_trusted_html(
         """
         <div class="header-container">
             <div class="logo-container">
@@ -15,6 +15,5 @@ def header():
                 <h1>SEO Analyzer</h1>
             </div>
         </div>
-        """,
-        unsafe_allow_html=True,
+        """
     )

@@ -1,5 +1,6 @@
 from pyseoanalyzer import analyze
 from src.models import Report, Page, KeyWord, W3CResponse, W3CMessage
+from src.url_safety import validate_public_url
 from typing import Dict, Any, List
 from collections import Counter
 import requests
@@ -12,8 +13,9 @@ class SEOAnalyzerService:
         self.metadata = {}
 
     def analyze(self, url: str) -> Report:
-        self.url = url
-        output = analyze(url)
+        safe_url = validate_public_url(url)
+        self.url = safe_url
+        output = analyze(safe_url)
         return self._create_report(output)
 
     def _create_report(self, output: Dict[str, Any]) -> Report:
@@ -47,52 +49,54 @@ class SEOAnalyzerService:
 
     def validate_page(self, url: str) -> W3CResponse:
         """Validate a single page using the W3C Validator API"""
-        h = {"Content-Type": "text/html; charset=utf-8"}
-        u = "https://validator.w3.org/nu/?out=json"
+        headers = {"Content-Type": "text/html; charset=utf-8"}
+        validator_url = "https://validator.w3.org/nu/?out=json"
+        safe_url = validate_public_url(url)
 
-        try:
-            response = requests.get(url, timeout=10)
-            d = response.content
+        page_response = requests.get(safe_url, timeout=10, allow_redirects=False)
+        if 300 <= page_response.status_code < 400:
+            raise ValueError("Redirects are not supported during W3C validation.")
+        page_response.raise_for_status()
 
-            response = requests.post(u, headers=h, data=d, timeout=10)
-            if response.status_code >= 400:
-                print(f"W3C Validator API returned status code: {response.status_code}")
-                return W3CResponse(messages=[], url=url, source=None, language=None)
+        validator_response = requests.post(
+            validator_url,
+            headers=headers,
+            data=page_response.content,
+            timeout=10,
+        )
+        validator_response.raise_for_status()
 
-            result = response.json()
-            messages = []
-            for msg in result.get("messages", []):
-                last_line = msg.get("lastLine")
-                first_line = msg.get("firstLine", last_line)
-                first_column = msg.get("firstColumn")
-                last_column = msg.get("lastColumn")
-                hilite_start = msg.get("hiliteStart")
-                hilite_length = msg.get("hiliteLength")
-                print(msg.get("url"), end=" - ")
-                messages.append(
-                    W3CMessage(
-                        type=msg.get("type"),
-                        subtype=msg.get("subType"),
-                        message=msg.get("message"),
-                        extract=msg.get("extract"),
-                        url=msg.get("url"),
-                        first_line=first_line,
-                        last_line=last_line,
-                        first_column=first_column,
-                        last_column=last_column,
-                        hiliteStart=hilite_start,
-                        hiliteLength=hilite_length,
-                    )
+        result = validator_response.json()
+        messages = []
+        for msg in result.get("messages", []):
+            last_line = msg.get("lastLine")
+            first_line = msg.get("firstLine", last_line)
+            first_column = msg.get("firstColumn")
+            last_column = msg.get("lastColumn")
+            hilite_start = msg.get("hiliteStart")
+            hilite_length = msg.get("hiliteLength")
+            messages.append(
+                W3CMessage(
+                    type=msg.get("type"),
+                    subtype=msg.get("subType"),
+                    message=msg.get("message"),
+                    extract=msg.get("extract"),
+                    url=msg.get("url"),
+                    first_line=first_line,
+                    last_line=last_line,
+                    first_column=first_column,
+                    last_column=last_column,
+                    hiliteStart=hilite_start,
+                    hiliteLength=hilite_length,
                 )
-            return W3CResponse(
-                messages=messages,
-                url=url,
-                source=result.get("source", None),
-                language=result.get("language", None),
             )
-        except Exception as e:
-            print(f"Error validating {url}: {str(e)}")
-            return W3CResponse(messages=[], url=url, source=None, language=None)
+
+        return W3CResponse(
+            messages=messages,
+            url=safe_url,
+            source=result.get("source", None),
+            language=result.get("language", None),
+        )
 
     def _generate_report(self):
         return {

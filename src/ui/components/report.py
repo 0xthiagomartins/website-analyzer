@@ -1,5 +1,6 @@
 from src.models import Report
 from src.service import SEOAnalyzerService
+from src.url_safety import UnsafeUrlError
 import streamlit as st
 import plotly.express as px
 import pandas as pd
@@ -120,10 +121,16 @@ class Report:
         st.subheader("W3C Validation")
         if page.w3c_validation is None:
             if st.button("Validate Page"):
-                with st.spinner("Validating page..."):
-                    w3c_response = seo_service.validate_page(page.url)
+                try:
+                    with st.spinner("Validating page..."):
+                        w3c_response = seo_service.validate_page(page.url)
+                except UnsafeUrlError as exc:
+                    st.error(str(exc))
+                except Exception as exc:
+                    st.error(f"Unable to validate the page: {exc}")
+                else:
                     page.w3c_validation = w3c_response
-                st.rerun()
+                    st.rerun()
         else:
             w3c_results = page.w3c_validation
             col1, col2, col3 = st.columns(3)

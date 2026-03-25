@@ -1,4 +1,5 @@
 import streamlit as st
+from .trusted_html import render_trusted_html
 
 
 custom_css = """
@@ -100,4 +101,4 @@ custom_css = """
 
 def configure():
     st.set_page_config(page_title="SEO Analyzer", page_icon="🔍", layout="wide")
-    st.markdown(custom_css, unsafe_allow_html=True)
+    render_trusted_html(custom_css)
