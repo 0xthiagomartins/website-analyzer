@@ -1,4 +1,5 @@
 from ipaddress import ip_address
+import logging
 
 import pytest
 
@@ -34,6 +35,52 @@ def test_analyze_uses_normalized_safe_url(monkeypatch):
     assert report.pages == []
     assert report.keywords == []
     assert report.total_time == 0.0
+
+
+def test_analyze_normalizes_keywords_and_error_payloads(monkeypatch, caplog):
+    monkeypatch.setattr(
+        url_safety,
+        "_resolve_ip_addresses",
+        lambda hostname: {ip_address("93.184.216.34")},
+    )
+
+    def fake_analyze(url):
+        return {
+            "pages": [
+                {
+                    "url": url,
+                    "title": "Example page title",
+                    "description": "Example page description with enough content.",
+                    "word_count": 320,
+                    "keywords": [
+                        (2, "seo"),
+                        [1, "audit"],
+                        {"word": "crawl", "count": "3"},
+                        {"word": "broken"},
+                    ],
+                    "bigrams": [],
+                    "trigrams": [],
+                    "warnings": [],
+                }
+            ],
+            "keywords": [{"word": "seo", "count": 2}],
+            "errors": ["timeout", {"message": "invalid html", "code": 400}],
+            "total_time": 0.2,
+            "duplicate_pages": [],
+        }
+
+    monkeypatch.setattr(service_module, "analyze", fake_analyze)
+
+    with caplog.at_level(logging.WARNING):
+        report = SEOAnalyzerService().analyze("https://example.com")
+
+    assert [(kw.word, kw.count) for kw in report.pages[0].keywords] == [
+        ("seo", 2),
+        ("audit", 1),
+        ("crawl", 3),
+    ]
+    assert report.errors == ['timeout', '{"code": 400, "message": "invalid html"}']
+    assert "Ignoring unsupported keyword payload" in caplog.text
 
 
 def test_validate_page_rejects_internal_urls_before_fetch(monkeypatch):

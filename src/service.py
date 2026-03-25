@@ -1,51 +1,95 @@
+import json
+import logging
 from pyseoanalyzer import analyze
 from src.models import Report, Page, KeyWord, W3CResponse, W3CMessage
 from src.url_safety import validate_public_url
-from typing import Dict, Any, List
 from collections import Counter
 import requests
 
 
-class SEOAnalyzerService:
-    def __init__(self):
-        self.url = None
-        self.content = None
-        self.metadata = {}
+logger = logging.getLogger(__name__)
 
+
+class SEOAnalyzerService:
     def analyze(self, url: str) -> Report:
         safe_url = validate_public_url(url)
-        self.url = safe_url
         output = analyze(safe_url)
         return self._create_report(output)
 
-    def _create_report(self, output: Dict[str, Any]) -> Report:
+    def _create_report(self, output: dict[str, object]) -> Report:
         pages = [self._create_page(page_data) for page_data in output.get("pages", [])]
-        keywords = [
-            KeyWord(word=kw["word"], count=kw["count"])
-            for kw in output.get("keywords", [])
-        ]
+        keywords = self._normalize_keywords(output.get("keywords", []))
 
         return Report(
             pages=pages,
             keywords=keywords,
-            errors=output.get("errors", []),
+            errors=self._normalize_errors(output.get("errors", [])),
             total_time=output.get("total_time", 0.0),
             duplicate_pages=output.get("duplicate_pages", []),
         )
 
-    def _create_page(self, page_data: Dict[str, Any]) -> Page:
+    def _create_page(self, page_data: dict[str, object]) -> Page:
         return Page(
             url=page_data.get("url", ""),
             title=page_data.get("title", ""),
             description=page_data.get("description", ""),
             word_count=page_data.get("word_count", 0),
-            keywords=page_data.get("keywords", []),
+            keywords=self._normalize_keywords(page_data.get("keywords", [])),
             bigrams=[Counter(bigram) for bigram in page_data.get("bigrams", [])],
             trigrams=[Counter(trigram) for trigram in page_data.get("trigrams", [])],
             warnings=page_data.get("warnings", []),
             content_hash=page_data.get("content_hash"),
             w3c_validation=None,
         )
+
+    def _normalize_keywords(self, raw_keywords: object) -> list[KeyWord]:
+        if not isinstance(raw_keywords, list):
+            return []
+
+        normalized_keywords = []
+        for raw_keyword in raw_keywords:
+            keyword = self._normalize_keyword(raw_keyword)
+            if keyword is None:
+                logger.warning("Ignoring unsupported keyword payload: %r", raw_keyword)
+                continue
+            normalized_keywords.append(keyword)
+
+        return normalized_keywords
+
+    def _normalize_keyword(self, raw_keyword: object) -> KeyWord | None:
+        if isinstance(raw_keyword, KeyWord):
+            return raw_keyword
+
+        if isinstance(raw_keyword, dict):
+            word = raw_keyword.get("word")
+            count = raw_keyword.get("count")
+        elif isinstance(raw_keyword, (list, tuple)) and len(raw_keyword) >= 2:
+            count, word = raw_keyword[0], raw_keyword[1]
+        else:
+            return None
+
+        if word is None or count is None:
+            return None
+
+        try:
+            return KeyWord(word=str(word), count=int(count))
+        except (TypeError, ValueError):
+            return None
+
+    def _normalize_errors(self, raw_errors: object) -> list[str]:
+        if not isinstance(raw_errors, list):
+            return []
+
+        return [self._stringify_error(error) for error in raw_errors]
+
+    def _stringify_error(self, error: object) -> str:
+        if isinstance(error, str):
+            return error
+
+        try:
+            return json.dumps(error, sort_keys=True)
+        except (TypeError, ValueError):
+            return str(error)
 
     def validate_page(self, url: str) -> W3CResponse:
         """Validate a single page using the W3C Validator API"""
@@ -98,33 +142,7 @@ class SEOAnalyzerService:
             language=result.get("language", None),
         )
 
-    def _generate_report(self):
-        return {
-            "url": self.url,
-            "metadata": self.metadata,
-            "recommendations": self._generate_recommendations(),
-        }
-
-    def _generate_recommendations(self):
-        recommendations = []
-        if len(self.metadata["title"]) < 30 or len(self.metadata["title"]) > 60:
-            recommendations.append("Optimize title length (30-60 characters)")
-        if (
-            len(self.metadata["description"]) < 50
-            or len(self.metadata["description"]) > 160
-        ):
-            recommendations.append(
-                "Optimize meta description length (50-160 characters)"
-            )
-        if len(self.metadata["keywords"]) < 5:
-            recommendations.append("Add more relevant keywords")
-        if self.metadata["h1_count"] != 1:
-            recommendations.append("Ensure there's exactly one H1 tag")
-        if self.metadata["img_alt_count"] == 0:
-            recommendations.append("Add alt text to images")
-        return recommendations
-
-    def generate_suggestions(self, report: Report) -> Dict[str, List[str]]:
+    def generate_suggestions(self, report: Report) -> dict[str, list[str]]:
         suggestions = {
             "Title": [],
             "Description": [],

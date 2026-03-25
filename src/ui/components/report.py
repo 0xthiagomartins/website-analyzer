@@ -1,10 +1,10 @@
 from src.models import Report as ReportModel
 from src.service import SEOAnalyzerService
+from src.utils import group_warnings
 from src.url_safety import UnsafeUrlError
 import streamlit as st
 import plotly.express as px
 import pandas as pd
-import re
 import plotly.graph_objects as go
 
 
@@ -37,7 +37,7 @@ class ReportView:
     def __render_warnings(self, warnings):
         if warnings:
             with st.expander("Warnings", expanded=False):
-                grouped_warnings = self.__group_warnings(warnings)
+                grouped_warnings = group_warnings(warnings)
                 for category, items in grouped_warnings.items():
                     if isinstance(items, list):
                         st.warning(
@@ -45,27 +45,6 @@ class ReportView:
                         )
                     else:
                         st.warning(f"{category}: " + items)
-
-    def __group_warnings(self, warnings):
-        grouped = {}
-        pattern = r"^(.*?):\s*(.*)$"
-
-        for warning in warnings:
-            match = re.match(pattern, warning)
-            if match:
-                key, value = match.groups()
-                if key in grouped:
-                    if isinstance(grouped[key], list):
-                        grouped[key].append(value)
-                    else:
-                        grouped[key] = [grouped[key], value]
-                else:
-                    grouped[key] = value
-            else:
-                # If the warning doesn't match the pattern, add it as is
-                grouped[warning] = warning
-
-        return grouped
 
     def __render_page_details(self, report, seo_service):
         st.subheader("Detailed Page Analysis")
@@ -95,7 +74,8 @@ class ReportView:
             # Top Keywords
             with st.expander("Top Keywords", expanded=False):
                 keyword_data = pd.DataFrame(
-                    page.keywords[:10], columns=["Count", "Keyword"]
+                    [(kw.count, kw.word) for kw in page.keywords[:10]],
+                    columns=["Count", "Keyword"],
                 )
                 fig = go.Figure(
                     go.Bar(

@@ -89,7 +89,7 @@ def _make_page(url, *, with_validation=False):
         title="Example title for SEO testing",
         description="Useful description long enough to exercise the PDF generator.",
         word_count=420,
-        keywords=[(5, "seo"), (3, "audit")],
+        keywords=[KeyWord(word="seo", count=5), KeyWord(word="audit", count=3)],
         bigrams=[],
         trigrams=[],
         warnings=["Title: Too short"],
@@ -102,7 +102,7 @@ def _make_report(*pages):
     return Report(
         pages=list(pages),
         keywords=[KeyWord(word="seo", count=5), KeyWord(word="audit", count=3)],
-        errors=None,
+        errors=[],
         total_time=1.23,
         duplicate_pages=[],
     )
@@ -162,7 +162,7 @@ def test_get_logo_fetches_only_allowlisted_https_urls(monkeypatch):
     assert image["content"] == b"image-bytes"
 
 
-def test_build_story_handles_http_urls_validation_extracts_and_tuple_keywords(
+def test_build_story_handles_http_urls_validation_extracts_and_keyword_models(
     monkeypatch, capsys
 ):
     _install_pdf_test_doubles(monkeypatch)

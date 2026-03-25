@@ -16,6 +16,7 @@ from reportlab.lib.enums import TA_JUSTIFY, TA_CENTER, TA_LEFT
 from datetime import datetime
 from src.models import Report
 from src.url_safety import validate_logo_url
+from src.utils import group_warnings
 import requests
 from io import BytesIO
 import re
@@ -387,12 +388,8 @@ class PDFGenerator:
     def _create_keywords_chart(self, keywords):
         if keywords:
             plt.figure(figsize=(8, 4))
-            try:
-                keywords_list = [kw.word for kw in keywords[:10]]
-                counts = [kw.count for kw in keywords[:10]]
-            except (AttributeError, TypeError, IndexError):
-                keywords_list = [kw[1] for kw in keywords[:10]]
-                counts = [kw[0] for kw in keywords[:10]]
+            keywords_list = [kw.word for kw in keywords[:10]]
+            counts = [kw.count for kw in keywords[:10]]
             plt.bar(
                 keywords_list, counts, color=self.primary_color.rgb()
             )  # Use rgb() method instead of hexval
@@ -479,7 +476,7 @@ class PDFGenerator:
         # Warnings
         if page.warnings:
             self._create_title("Warnings", "Heading4")
-            grouped_warnings = self._group_warnings(page.warnings)
+            grouped_warnings = group_warnings(page.warnings)
             for category, items in grouped_warnings.items():
                 if isinstance(items, list):
                     self._create_paragraph(
@@ -524,24 +521,3 @@ class PDFGenerator:
                     self._create_paragraph(msg.extract, "Code")
 
         self.elements.append(PageBreak())
-
-    def _group_warnings(self, warnings):
-        grouped = {}
-        pattern = r"^(.*?):\s*(.*)$"
-
-        for warning in warnings:
-            match = re.match(pattern, warning)
-            if match:
-                key, value = match.groups()
-                if key in grouped:
-                    if isinstance(grouped[key], list):
-                        grouped[key].append(value)
-                    else:
-                        grouped[key] = [grouped[key], value]
-                else:
-                    grouped[key] = value
-            else:
-                # If the warning doesn't match the pattern, add it as is
-                grouped[warning] = warning
-
-        return grouped
